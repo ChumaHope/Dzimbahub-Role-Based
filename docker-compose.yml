@@ -1,0 +1,38 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: dzimbahub
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - dzimbahub_data:/var/lib/postgresql/data
+  backend:
+    build: ./backend
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/dzimbahub
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      PORT: 8080
+      CORS_ORIGINS: http://localhost:3000
+      OTP_EXPOSE_CODE: "true"   # local demo only: shows the SMS code on the login screen
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+  frontend:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080/api
+    ports:
+      - "3000:3000"
+    command: sh -c "npm install && npm run dev"
+    depends_on:
+      - backend
+volumes:
+  dzimbahub_data:
