@@ -57,7 +57,7 @@ export default async function Home() {
           {properties.length === 0 && (
             <div className="empty">Listings could not be loaded. Check that the API is running.</div>
           )}
-        </div>
+        </section> {/* <--- This was the fix! Changed </div> to </section> */}
 
         <section className="section">
           <div className="two-col">
