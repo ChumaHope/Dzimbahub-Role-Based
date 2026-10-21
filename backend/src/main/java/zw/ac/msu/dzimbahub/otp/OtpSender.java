@@ -2,7 +2,7 @@ package zw.ac.msu.dzimbahub.otp;
 
 /**
  * Delivers a sign-in code to the user's phone.
- * Choose the channel with OTP_CHANNEL: sms (default) or whatsapp.
+ * Choose the channel with OTP_CHANNEL: sms (default), twilio-whatsapp or whatsapp (Meta).
  */
 public interface OtpSender {
     enum Channel { SMS, WHATSAPP }

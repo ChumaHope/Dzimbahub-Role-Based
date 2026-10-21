@@ -37,12 +37,8 @@ services:
       - key: TWILIO_FROM
         sync: false
       - key: OTP_CHANNEL
-        value: whatsapp
-      - key: WHATSAPP_PHONE_NUMBER_ID
-        sync: false
-      - key: WHATSAPP_ACCESS_TOKEN
-        sync: false
-      - key: WHATSAPP_TEMPLATE_NAME
-        value: dzimbahub_login_code
+        value: sms        # change to twilio-whatsapp in the dashboard when the sandbox is ready
+      - key: TWILIO_WHATSAPP_FROM
+        value: whatsapp:+14155238886
       - key: WHATSAPP_FALLBACK_TO_SMS
         value: true
