@@ -52,3 +52,9 @@
 .gallery-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .gallery-thumb.active{border-color:#f59e0b}
 @media(max-width:760px){.review-card{grid-template-columns:1fr}}
+/* ---- Authenticator setup on the login page */
+.totp-steps{margin:0 0 6px;padding-left:20px;display:grid;gap:12px;font-size:14px;color:#263349;line-height:1.5}
+.totp-qr{margin:10px 0 4px;width:236px;min-height:236px;padding:8px;border:1px solid #dce3ec;border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center}
+.totp-qr img{display:block}
+.totp-manual summary{cursor:pointer;color:#1e3a8a;font-weight:700;font-size:13px;margin-top:6px}
+.totp-key{display:inline-block;margin-top:6px;padding:8px 10px;border-radius:8px;background:#eef2ff;color:#1e3a8a;font-size:14px;letter-spacing:1px;word-break:break-all}

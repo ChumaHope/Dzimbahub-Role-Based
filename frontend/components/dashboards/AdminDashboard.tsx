@@ -35,7 +35,7 @@ export default function AdminDashboard({ user }: { user: AuthUser }) {
     if (!reason.trim()) { setFlash({ kind: 'error', text: 'Please type a reason so the landlord knows what to fix.' }); return; }
     if (await run(() => api.admin.rejectListing(p.id, reason.trim()), setFlash, `“${p.title}” rejected. The landlord has been told why.`)) await load();
   };
-  const act = (u: UserRow, action: 'approve' | 'reject' | 'suspend' | 'reactivate', done: string) => async () => {
+  const act = (u: UserRow, action: 'approve' | 'reject' | 'suspend' | 'reactivate' | 'reset-authenticator', done: string) => async () => {
     if (await run(() => api.admin.userAction(u.id, action), setFlash, `${u.fullName}: ${done}`)) await load();
   };
   const n = (k: string) => (loading ? '…' : stats[k] ?? 0);
@@ -71,14 +71,18 @@ export default function AdminDashboard({ user }: { user: AuthUser }) {
         </tbody></table></div>))}
 
       {tab === 'users' && (
-        <div className="table-wrap"><table className="table"><thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Status</th><th></th></tr></thead><tbody>
+        <div className="table-wrap"><table className="table"><thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Status</th><th>Authenticator</th><th></th></tr></thead><tbody>
           {users.map(u => (
-            <tr key={u.id}><td>{u.fullName}</td><td><span className={`role-chip ${u.role.toLowerCase()}`}>{u.role.toLowerCase()}</span></td><td>{u.email}</td><td><Badge status={u.status} /></td>
+            <tr key={u.id}><td>{u.fullName}</td><td><span className={`role-chip ${u.role.toLowerCase()}`}>{u.role.toLowerCase()}</span></td><td>{u.email}</td><td><Badge status={u.status} /></td><td>{u.authenticator ? <span className="badge active">set up</span> : <span className="muted">not yet</span>}</td>
               <td className="actions">
                 {u.role !== 'ADMIN' && u.status === 'APPROVED' && <ActionButton className="secondary small" busyLabel="Suspending…" onClick={act(u, 'suspend', 'suspended.')}>Suspend</ActionButton>}
                 {u.role !== 'ADMIN' && u.status === 'SUSPENDED' && <ActionButton className="small" busyLabel="Reactivating…" onClick={act(u, 'reactivate', 'reactivated.')}>Reactivate</ActionButton>}
                 {u.role !== 'ADMIN' && u.status === 'REJECTED' && <ActionButton className="small" busyLabel="Approving…" onClick={act(u, 'approve', 'approved.')}>Approve instead</ActionButton>}
                 {u.role !== 'ADMIN' && u.status === 'PENDING' && <span className="muted">See “Signup requests”</span>}
+                {u.role !== 'ADMIN' && u.authenticator && <ActionButton className="secondary small" busyLabel="Resetting…" onClick={async () => {
+                  if (!window.confirm(`Reset the authenticator for ${u.fullName}? Do this only if they lost or replaced their phone. They will scan a new QR code at their next sign-in.`)) return;
+                  await act(u, 'reset-authenticator', 'authenticator reset. They will set it up again at their next sign-in.')();
+                }}>Reset authenticator</ActionButton>}
               </td></tr>))}
         </tbody></table></div>)}
 

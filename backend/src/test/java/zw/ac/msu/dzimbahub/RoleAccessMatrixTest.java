@@ -64,6 +64,7 @@ class RoleAccessMatrixTest extends ApiTestSupport {
                 Arguments.of("POST", "/api/admin/users/1/reject", Allowed.ADMIN),
                 Arguments.of("POST", "/api/admin/users/1/suspend", Allowed.ADMIN),
                 Arguments.of("POST", "/api/admin/users/1/reactivate", Allowed.ADMIN),
+                Arguments.of("POST", "/api/admin/users/1/reset-authenticator", Allowed.ADMIN),
                 Arguments.of("GET", "/api/admin/properties", Allowed.ADMIN),
                 Arguments.of("POST", "/api/admin/properties/1/status", Allowed.ADMIN),
                 Arguments.of("GET", "/api/admin/properties/pending", Allowed.ADMIN),

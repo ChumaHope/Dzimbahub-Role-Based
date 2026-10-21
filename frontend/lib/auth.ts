@@ -1,8 +1,16 @@
 import { API, Role } from './api';
 
-export type AuthUser = { id: number; fullName: string; email: string; role: Role };
+export type AuthUser = { id: number; fullName: string; email: string; role: Role; authenticatorEnabled?: boolean };
 export type AuthResult = { token: string; user: AuthUser };
-export type Challenge = { challengeId: string; phoneHint: string; channel?: 'WHATSAPP' | 'SMS'; devCode?: string };
+/**
+ * method TOTP: type the code from the authenticator app.
+ * method TOTP_SETUP: first sign-in; scan otpauthUri (or type secret) into the app, then type its code.
+ * method CODE: a code was sent (channel says how).
+ */
+export type Challenge = {
+  challengeId: string; method: 'TOTP' | 'TOTP_SETUP' | 'CODE'; phoneHint?: string; channel?: 'WHATSAPP' | 'SMS';
+  devCode?: string; otpauthUri?: string; secret?: string; account?: string; allowFallback?: boolean;
+};
 
 const TOKEN_KEY = 'dzimbahub_token';
 const USER_KEY = 'dzimbahub_user';
@@ -43,3 +51,5 @@ export const signupRequest = (body: { fullName: string; email: string; phone: st
 export const loginRequest = (body: { email: string; password: string }) => authPost<Challenge>('/login', body);
 /** Step 2 of sign-in: checks the code and returns the session token. */
 export const verifyCode = (body: { challengeId: string; code: string }) => authPost<AuthResult>('/verify-otp', body);
+/** "Get a code another way": sends a code instead of using the authenticator app. */
+export const sendFallbackCode = (challengeId: string) => authPost<Challenge>('/send-code', { challengeId });

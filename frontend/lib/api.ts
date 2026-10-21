@@ -19,7 +19,7 @@ export type Viewing = { id: number; propertyId: number; propertyTitle: string; t
 export type Msg = { id: number; propertyId: number; propertyTitle: string; senderId: number; senderName: string; recipientId: number; recipientName: string; body: string; createdAt: string; mine: boolean };
 export type Review = { id: number; propertyId: number; tenantName: string; rating: number; comment?: string; createdAt: string };
 export type Booking = { id: number; propertyId: number; propertyTitle: string; tenantId: number; tenantName: string; amount: number; status: 'PENDING' | 'CONFIRMED'; paymentRef?: string; createdAt: string };
-export type UserRow = { id: number; fullName: string; email: string; phone?: string; role: Role; status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED'; createdAt: string };
+export type UserRow = { id: number; fullName: string; email: string; phone?: string; role: Role; status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED'; createdAt: string; authenticator?: boolean };
 export type AuditRow = { id: number; actor?: string; action: string; targetType?: string; targetId?: string; detail?: string; createdAt: string };
 
 export const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
@@ -118,7 +118,7 @@ export const api = {
   admin: {
     stats: () => request<Record<string, number>>('/admin/stats'),
     users: (status = '') => request<UserRow[]>(`/admin/users${status ? `?status=${status}` : ''}`),
-    userAction: (id: number, action: 'approve' | 'reject' | 'suspend' | 'reactivate') => post<UserRow>(`/admin/users/${id}/${action}`),
+    userAction: (id: number, action: 'approve' | 'reject' | 'suspend' | 'reactivate' | 'reset-authenticator') => post<UserRow>(`/admin/users/${id}/${action}`),
     properties: () => request<Property[]>('/admin/properties'),
     setListingStatus: (id: number, status: ListingStatus) => post<Property>(`/admin/properties/${id}/status`, { status }),
     approveListing: (id: number) => post<Property>(`/admin/properties/${id}/approve`),

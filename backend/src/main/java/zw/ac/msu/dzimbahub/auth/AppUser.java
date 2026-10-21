@@ -17,6 +17,11 @@ public class AppUser {
     @Column(nullable = false) private Instant createdAt = Instant.now();
     private Instant reviewedAt;
     @Column(length = 180) private String reviewedBy;
+    /** Authenticator app secret, encrypted (see SecretCipher). Null until the user sets up the app. */
+    @Column(length = 200) private String totpSecret;
+    private Instant totpEnabledAt;
+    /** Last 30-second step whose code was accepted, so the same code cannot be used twice. Wrapper type: existing rows hold null. */
+    private Long totpLastStep;
 
     protected AppUser() {}
 
@@ -36,6 +41,16 @@ public class AppUser {
     public Instant getCreatedAt() { return createdAt; }
     public Instant getReviewedAt() { return reviewedAt; }
     public String getReviewedBy() { return reviewedBy; }
+
+    public String getTotpSecret() { return totpSecret; }
+    public Instant getTotpEnabledAt() { return totpEnabledAt; }
+    public boolean isTotpEnabled() { return totpSecret != null && !totpSecret.isBlank(); }
+    public long getTotpLastStep() { return totpLastStep == null ? -1 : totpLastStep; }
+    public void enableTotp(String encryptedSecret, long acceptedStep) {
+        this.totpSecret = encryptedSecret; this.totpEnabledAt = Instant.now(); this.totpLastStep = acceptedStep;
+    }
+    public void useTotpStep(long step) { this.totpLastStep = step; }
+    public void resetTotp() { this.totpSecret = null; this.totpEnabledAt = null; this.totpLastStep = null; }
 
     public void changeStatus(UserStatus newStatus, String adminEmail) {
         this.status = newStatus; this.reviewedBy = adminEmail; this.reviewedAt = Instant.now();

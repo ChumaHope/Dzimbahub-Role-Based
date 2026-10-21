@@ -38,7 +38,7 @@ public class AdminService {
     }
 
     static UserView view(AppUser u) {
-        return new UserView(u.getId(), u.getFullName(), u.getEmail(), u.getPhone(), u.getRole().name(), u.getStatus().name(), u.getCreatedAt());
+        return new UserView(u.getId(), u.getFullName(), u.getEmail(), u.getPhone(), u.getRole().name(), u.getStatus().name(), u.getCreatedAt(), u.isTotpEnabled());
     }
 
     public List<UserView> listUsers(UserStatus status) {
@@ -52,7 +52,7 @@ public class AdminService {
         if (u.getStatus() != UserStatus.PENDING && u.getStatus() != UserStatus.REJECTED)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Only pending or rejected requests can be approved.");
         return change(adminEmail, u, UserStatus.APPROVED, "USER_APPROVED",
-                "Your DzimbaHub account has been approved. You can now sign in with your email, password and the text-message code.");
+                "Your DzimbaHub account has been approved. Sign in with your email and password; the first time, you will be shown how to set up Google Authenticator.");
     }
 
     @Transactional
@@ -78,6 +78,18 @@ public class AdminService {
         if (u.getStatus() != UserStatus.SUSPENDED)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Only suspended accounts can be reactivated.");
         return change(adminEmail, u, UserStatus.APPROVED, "USER_REACTIVATED", null);
+    }
+
+    /** For a user who lost or replaced their phone: they will set up the authenticator app again at their next sign-in. */
+    @Transactional
+    public UserView resetAuthenticator(String adminEmail, Long id) {
+        AppUser u = target(adminEmail, id);
+        if (!u.isTotpEnabled())
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "This user has not set up an authenticator app.");
+        u.resetTotp();
+        users.save(u);
+        audit.record(adminEmail, "AUTHENTICATOR_RESET", "User", u.getId(), u.getEmail());
+        return view(u);
     }
 
     /** Administrators cannot change their own account or any other administrator account. */

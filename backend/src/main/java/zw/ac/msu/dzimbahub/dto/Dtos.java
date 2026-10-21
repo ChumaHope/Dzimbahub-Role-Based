@@ -51,6 +51,6 @@ public final class Dtos {
     public record ReviewView(Long id, Long propertyId, String tenantName, int rating, String comment, Instant createdAt) {}
     public record BookingView(Long id, Long propertyId, String propertyTitle, Long tenantId, String tenantName,
                               double amount, String status, String paymentRef, Instant createdAt) {}
-    public record UserView(Long id, String fullName, String email, String phone, String role, String status, Instant createdAt) {}
+    public record UserView(Long id, String fullName, String email, String phone, String role, String status, Instant createdAt, boolean authenticator) {}
     public record AuditView(Long id, String actor, String action, String targetType, String targetId, String detail, Instant createdAt) {}
 }

@@ -23,7 +23,11 @@ import java.util.Map;
  * Sign-up and sign-in.
  * 1. POST /signup  creates a PENDING account. No token is issued.
  * 2. An administrator approves the request.
- * 3. POST /login   checks e-mail and password, then sends a six-digit code by WhatsApp (or SMS).
+ * 3. POST /login   checks e-mail and password and starts the second step:
+ *      AUTH_SECOND_FACTOR=totp (default): the code from an authenticator app such as Google Authenticator.
+ *          At the first sign-in the response carries a QR link so the user can add DzimbaHub to the app.
+ *      AUTH_SECOND_FACTOR=code: a six-digit code sent by SMS / WhatsApp / server log.
+ *    POST /send-code  fallback ("get a code another way"): sends a code instead of using the app.
  * 4. POST /verify-otp checks the code and only then issues the JWT.
  */
 @RestController
@@ -35,10 +39,16 @@ public class AuthController {
     private final OtpService otp;
     private final AuditService audit;
     private final boolean exposeCode;
+    private final boolean useAuthenticator;
+    private final boolean allowFallback;
 
     public AuthController(AppUserRepository users, PasswordEncoder encoder, JwtService jwt, OtpService otp, AuditService audit,
-                          @Value("${app.otp.expose-code:false}") boolean exposeCode) {
+                          @Value("${app.otp.expose-code:false}") boolean exposeCode,
+                          @Value("${app.auth.second-factor:totp}") String secondFactor,
+                          @Value("${app.auth.allow-code-fallback:true}") boolean allowFallback) {
         this.users = users; this.encoder = encoder; this.jwt = jwt; this.otp = otp; this.audit = audit; this.exposeCode = exposeCode;
+        this.useAuthenticator = !"code".equalsIgnoreCase(secondFactor.trim());
+        this.allowFallback = allowFallback;
     }
 
     public record SignupRequest(@NotBlank @Size(min = 2, max = 100) String fullName,
@@ -48,12 +58,20 @@ public class AuthController {
                                 UserRole role) {}
     public record LoginRequest(@NotBlank @Email String email, @NotBlank String password) {}
     public record VerifyRequest(@NotBlank String challengeId, @NotBlank @Pattern(regexp = "^[0-9]{6}$", message = "must be 6 digits") String code) {}
-    public record UserResponse(Long id, String fullName, String email, String role) {}
+    public record FallbackRequest(@NotBlank String challengeId) {}
+    public record UserResponse(Long id, String fullName, String email, String role, boolean authenticatorEnabled) {}
     public record AuthResponse(String token, UserResponse user) {}
+    /**
+     * method: TOTP (type the app's code), TOTP_SETUP (scan otpauthUri / type secret into the app first) or CODE (a code was sent).
+     * channel: for CODE, how it was sent (SMS / WHATSAPP). allowFallback: whether "get a code another way" is offered.
+     */
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record ChallengeResponse(String challengeId, String phoneHint, String channel, String devCode) {}
+    public record ChallengeResponse(String challengeId, String method, String phoneHint, String channel, String devCode,
+                                    String otpauthUri, String secret, String account, Boolean allowFallback) {}
 
-    private UserResponse toResponse(AppUser u) { return new UserResponse(u.getId(), u.getFullName(), u.getEmail(), u.getRole().name()); }
+    private UserResponse toResponse(AppUser u) {
+        return new UserResponse(u.getId(), u.getFullName(), u.getEmail(), u.getRole().name(), u.isTotpEnabled());
+    }
 
     private static ResponseEntity<Map<String, String>> reply(HttpStatus s, String message) {
         return ResponseEntity.status(s).body(Map.of("message", message));
@@ -90,6 +108,13 @@ public class AuthController {
             case SUSPENDED: return reply(HttpStatus.FORBIDDEN, "Your account has been suspended. Please contact the administrator.");
             default: break;
         }
+        if (useAuthenticator) {
+            OtpService.Started started = otp.startAuthenticator(user);
+            audit.record(user.getEmail(), "TOTP".equals(started.method()) ? "LOGIN_APP_CODE_REQUESTED" : "AUTHENTICATOR_SETUP_STARTED",
+                    "User", user.getId(), null);
+            return ResponseEntity.ok(new ChallengeResponse(started.challengeId(), started.method(), null, null, null,
+                    started.otpauthUri(), started.secret(), started.secret() == null ? null : user.getEmail(), allowFallback));
+        }
         if (user.getPhone() == null || user.getPhone().isBlank())
             return reply(HttpStatus.FORBIDDEN, "No phone number is registered for this account. Please contact the administrator.");
         OtpService.Issued issued;
@@ -99,8 +124,32 @@ public class AuthController {
             return reply(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage());
         }
         audit.record(user.getEmail(), "LOGIN_CODE_SENT", "User", user.getId(), issued.channel().name());
-        return ResponseEntity.ok(new ChallengeResponse(issued.challengeId(), hint(user.getPhone()),
-                issued.channel().name(), exposeCode ? issued.code() : null));
+        return ResponseEntity.ok(new ChallengeResponse(issued.challengeId(), "CODE", hint(user.getPhone()),
+                issued.channel().name(), exposeCode ? issued.code() : null, null, null, null, false));
+    }
+
+    /** Fallback for users who cannot use their authenticator app right now. */
+    @PostMapping("/send-code")
+    public ResponseEntity<?> sendCode(@Valid @RequestBody FallbackRequest body) {
+        if (!allowFallback)
+            return reply(HttpStatus.FORBIDDEN, "Please use your authenticator app. If you lost your phone, ask the administrator to reset your authenticator.");
+        OtpService.Fallback f;
+        try {
+            f = otp.fallback(body.challengeId());
+        } catch (OtpDeliveryException e) {
+            return reply(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage());
+        }
+        switch (f.outcome()) {
+            case EXPIRED: return reply(HttpStatus.UNAUTHORIZED, "This sign-in has expired. Please sign in again.");
+            case INVALID: return reply(HttpStatus.UNAUTHORIZED, "This sign-in is no longer valid. Please sign in again.");
+            case ALREADY_SENT: return reply(HttpStatus.CONFLICT, "A code has already been sent for this sign-in. To get a new one, sign in again.");
+            case NO_PHONE: return reply(HttpStatus.FORBIDDEN, "No phone number is registered for this account. Please contact the administrator.");
+            default: break;
+        }
+        OtpService.Issued issued = f.issued();
+        audit.record(f.user().getEmail(), "LOGIN_FALLBACK_CODE_SENT", "User", f.user().getId(), issued.channel().name());
+        return ResponseEntity.ok(new ChallengeResponse(issued.challengeId(), "CODE", hint(f.user().getPhone()),
+                issued.channel().name(), exposeCode ? issued.code() : null, null, null, null, false));
     }
 
     @PostMapping("/verify-otp")
@@ -109,13 +158,15 @@ public class AuthController {
         switch (v.outcome()) {
             case EXPIRED: return reply(HttpStatus.UNAUTHORIZED, "That code has expired. Please sign in again to get a new one.");
             case LOCKED: return reply(HttpStatus.UNAUTHORIZED, "Too many incorrect attempts. Please sign in again to get a new code.");
-            case INVALID: return reply(HttpStatus.UNAUTHORIZED, "That code is not correct.");
+            case INVALID: return reply(HttpStatus.UNAUTHORIZED, "CODE".equals(v.method()) ? "That code is not correct."
+                    : "That code is not correct. Use the newest 6-digit code for DzimbaHub in your authenticator app, and check that your phone sets its time automatically.");
             default: break;
         }
         AppUser user = users.findById(v.userId()).orElse(null);
         if (user == null || user.getStatus() != UserStatus.APPROVED)
             return reply(HttpStatus.FORBIDDEN, "This account cannot sign in.");
-        audit.record(user.getEmail(), "LOGIN_SUCCESS", "User", user.getId(), user.getRole().name());
+        if ("TOTP_SETUP".equals(v.method())) audit.record(user.getEmail(), "AUTHENTICATOR_ENABLED", "User", user.getId(), null);
+        audit.record(user.getEmail(), "LOGIN_SUCCESS", "User", user.getId(), user.getRole().name() + " via " + v.method());
         return ResponseEntity.ok(new AuthResponse(jwt.generate(user.getEmail(), user.getRole().name()), toResponse(user)));
     }
 

@@ -56,7 +56,7 @@ public class SecurityConfig {
                         }))
                 .authorizeHttpRequests(a -> a
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/auth/login", "/api/auth/signup", "/api/auth/verify-otp", "/api/health", "/error").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/signup", "/api/auth/verify-otp", "/api/auth/send-code", "/api/health", "/error").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/properties", "/api/properties/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/images/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/recommendations").permitAll()

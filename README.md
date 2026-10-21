@@ -11,8 +11,13 @@ Three roles, each with its own dashboard and its own permitted actions, enforced
 ## Sign-up and sign-in flow
 1. **Request an account** (`/signup`): name, email, phone number, role (tenant or landlord), password. The account is created as `PENDING` and **no token is issued**.
 2. **Administrator approves** (Administration → Signup requests). The user is told by text message.
-3. **Sign in, step 1** (`/login`): email and password. If the account is approved, a 6-digit code is sent to the registered phone by text message.
-4. **Sign in, step 2**: enter the code. Only then is a JWT issued. Codes expire after 5 minutes, work once, and lock after 5 wrong tries.
+3. **Sign in, step 1** (`/login`): email and password. Only approved accounts continue.
+4. **Sign in, step 2**: the 6-digit code from an authenticator app (Google Authenticator, Microsoft Authenticator, Authy; RFC 6238 TOTP).
+   At the first sign-in the page shows a QR code to scan; the code the app then shows finishes the setup. Only then is a JWT issued.
+   Secrets are stored encrypted (AES-256-GCM), each code works once, and 5 wrong tries lock the attempt.
+   **Fallback:** "Get a code another way" sends a code through `OTP_CHANNEL` / `SMS_PROVIDER` (with `SMS_PROVIDER=console` it is written to the server log).
+   An administrator can **Reset authenticator** for a user who lost their phone (All users tab).
+   Set `AUTH_SECOND_FACTOR=code` to go back to sent codes only, and `AUTH_CODE_FALLBACK=false` to hide the fallback.
 5. Every request re-checks the account in the database, so a suspended user loses access immediately and the role always comes from the database.
 
 Pending, rejected and suspended accounts cannot sign in.

@@ -38,6 +38,7 @@ public class AdminController {
     @PostMapping("/users/{id}/approve") public UserView approve(Authentication a, @PathVariable Long id) { return admin.approve(a.getName(), id); }
     @PostMapping("/users/{id}/reject") public UserView reject(Authentication a, @PathVariable Long id) { return admin.reject(a.getName(), id); }
     @PostMapping("/users/{id}/suspend") public UserView suspend(Authentication a, @PathVariable Long id) { return admin.suspend(a.getName(), id); }
+    @PostMapping("/users/{id}/reset-authenticator") public UserView resetAuthenticator(Authentication a, @PathVariable Long id) { return admin.resetAuthenticator(a.getName(), id); }
     @PostMapping("/users/{id}/reactivate") public UserView reactivate(Authentication a, @PathVariable Long id) { return admin.reactivate(a.getName(), id); }
 
     @GetMapping("/properties") public List<Property> properties() { return listings.all(); }

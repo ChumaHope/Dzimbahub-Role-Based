@@ -3,7 +3,12 @@ package zw.ac.msu.dzimbahub.auth;
 import jakarta.persistence.*;
 import java.time.Instant;
 
-/** A pending text-message code. Only a BCrypt hash of the code is stored. */
+/**
+ * One sign-in attempt waiting for its second step. The method says how the user proves it is them:
+ * CODE       - a code we sent (SMS / WhatsApp / server log); only its BCrypt hash is stored
+ * TOTP       - the 6-digit code from their authenticator app
+ * TOTP_SETUP - first sign-in: they scan a new secret into the app and type its code
+ */
 @Entity
 @Table(name = "otp_challenges")
 public class OtpChallenge {
@@ -13,6 +18,9 @@ public class OtpChallenge {
     @Column(nullable = false) private Instant expiresAt;
     @Column(nullable = false) private int attempts;
     @Column(nullable = false) private boolean consumed;
+    @Column(length = 20) private String method;
+    /** Only for TOTP_SETUP: the new secret, encrypted, until the user confirms it. */
+    @Column(length = 200) private String setupSecret;
 
     protected OtpChallenge() {}
     public OtpChallenge(String id, Long userId, String codeHash, Instant expiresAt) {
@@ -26,4 +34,10 @@ public class OtpChallenge {
     public boolean isConsumed() { return consumed; }
     public void addAttempt() { attempts++; }
     public void consume() { consumed = true; }
+    public String getMethod() { return method == null ? "CODE" : method; }
+    public String getSetupSecret() { return setupSecret; }
+    public void setMethod(String m) { method = m; }
+    public void setSetupSecret(String s) { setupSecret = s; }
+    /** Switches an authenticator challenge to a sent code (the fallback). Failed attempts are kept. */
+    public void switchToCode(String newCodeHash, Instant newExpiry) { method = "CODE"; codeHash = newCodeHash; expiresAt = newExpiry; setupSecret = null; }
 }

@@ -66,3 +66,14 @@ Every endpoint is called as anonymous, tenant, landlord and administrator. Expec
 | IMG-02 | Only real JPG/PNG/WebP files are accepted, and only from landlords | ListingApprovalTest |
 | IMG-03 | Uploaded photos form the listing gallery; removed photos are deleted | ListingApprovalTest |
 | IMG-04 | A landlord cannot attach another landlord's photo | ListingApprovalTest |
+
+## Authenticator app sign-in
+
+| ID | Requirement | Test |
+|----|-------------|------|
+| TOTP-01 | First sign-in shows a QR link; the app's code finishes setup; the secret is stored encrypted | TotpFlowTest |
+| TOTP-02 | Later sign-ins ask for the app's code; a code cannot be used twice | TotpFlowTest |
+| TOTP-03 | "Get a code another way" sends a code through the fallback channel, once per sign-in | TotpFlowTest |
+| TOTP-04 | Only an administrator can reset a lost authenticator; the user then sets it up again | TotpFlowTest |
+| TOTP-05 | Accounts that are not approved cannot start setup | TotpFlowTest |
+| TOTP-RFC | Codes match the RFC 6238 SHA-1 test values | TotpTest |
