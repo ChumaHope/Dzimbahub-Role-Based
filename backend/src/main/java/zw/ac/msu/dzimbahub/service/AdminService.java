@@ -106,6 +106,8 @@ public class AdminService {
         m.put("landlords", users.countByRole(UserRole.LANDLORD));
         m.put("properties", properties.count());
         m.put("activeProperties", properties.findAllByOrderByIdDesc().stream().filter(Property::isActive).count());
+        m.put("pendingListings", properties.findAllByOrderByIdDesc().stream()
+                .filter(p -> p.getListingStatus() == zw.ac.msu.dzimbahub.model.ListingStatus.PENDING).count());
         m.put("viewings", viewings.count());
         m.put("messages", messages.count());
         m.put("reviews", reviews.count());

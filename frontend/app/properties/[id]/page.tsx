@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { api, Booking, Property, Review, Viewing } from '../../../lib/api';
+import { api, Booking, mediaUrl, Property, Review, Viewing } from '../../../lib/api';
 import { useUser } from '../../../lib/useUser';
 import { ActionButton, Flash, Notice, Stars, fmtDate, run } from '../../../components/ui';
 
@@ -16,6 +16,7 @@ export default function Detail() {
   const [myViewings, setMyViewings] = useState<Viewing[]>([]);
   const [myBooking, setMyBooking] = useState<Booking | null>(null);
   const [flash, setFlash] = useState<Flash>(null);
+  const [shown, setShown] = useState(0);
 
   const [date, setDate] = useState('');
   const [time, setTime] = useState('10:00');
@@ -50,7 +51,18 @@ export default function Detail() {
     <main className="container section">
       <div className="two-col">
         <div>
-          <img className="detail-image" src={p.imageUrl} alt={p.title} />
+          {(() => {
+            const photos = p.photos?.length ? p.photos : [p.imageUrl];
+            const current = photos[Math.min(shown, photos.length - 1)];
+            return <>
+              <img className="detail-image" src={mediaUrl(current)} alt={p.title} />
+              {photos.length > 1 && <div className="gallery-strip">
+                {photos.map((url, i) => (
+                  <button key={url + i} type="button" className={i === shown ? 'gallery-thumb active' : 'gallery-thumb'} onClick={() => setShown(i)} aria-label={`Show photo ${i + 1}`}>
+                    <img src={mediaUrl(url)} alt="" /></button>))}
+              </div>}
+            </>;
+          })()}
           <div className="detail" style={{ marginTop: 16 }}>
             <h1>{p.title}</h1>
             <p className="muted">📍 {p.address}, {p.area}, {p.city}</p>

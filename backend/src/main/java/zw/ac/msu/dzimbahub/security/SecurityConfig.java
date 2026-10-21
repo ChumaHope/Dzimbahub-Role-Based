@@ -58,6 +58,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/login", "/api/auth/signup", "/api/auth/verify-otp", "/api/health", "/error").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/properties", "/api/properties/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/images/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/recommendations").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/landlord/**").hasRole("LANDLORD")

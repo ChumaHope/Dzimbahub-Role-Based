@@ -28,6 +28,7 @@ class RoleAccessMatrixTest extends ApiTestSupport {
                 Arguments.of("GET", "/api/properties/1/reviews", Allowed.PUBLIC),
                 Arguments.of("POST", "/api/recommendations", Allowed.PUBLIC),
                 Arguments.of("GET", "/api/health", Allowed.PUBLIC),
+                Arguments.of("GET", "/api/images/1", Allowed.PUBLIC),
                 // any signed-in user, including the catch-all (unknown paths are NOT open)
                 Arguments.of("GET", "/api/auth/me", Allowed.ANY_SIGNED_IN),
                 Arguments.of("GET", "/api/unknown/path", Allowed.ANY_SIGNED_IN),
@@ -47,6 +48,7 @@ class RoleAccessMatrixTest extends ApiTestSupport {
                 // landlord only
                 Arguments.of("GET", "/api/landlord/properties", Allowed.LANDLORD),
                 Arguments.of("POST", "/api/landlord/properties", Allowed.LANDLORD),
+                Arguments.of("POST", "/api/landlord/images", Allowed.LANDLORD),
                 Arguments.of("PUT", "/api/landlord/properties/1", Allowed.LANDLORD),
                 Arguments.of("DELETE", "/api/landlord/properties/1", Allowed.LANDLORD),
                 Arguments.of("GET", "/api/landlord/viewings", Allowed.LANDLORD),
@@ -64,6 +66,9 @@ class RoleAccessMatrixTest extends ApiTestSupport {
                 Arguments.of("POST", "/api/admin/users/1/reactivate", Allowed.ADMIN),
                 Arguments.of("GET", "/api/admin/properties", Allowed.ADMIN),
                 Arguments.of("POST", "/api/admin/properties/1/status", Allowed.ADMIN),
+                Arguments.of("GET", "/api/admin/properties/pending", Allowed.ADMIN),
+                Arguments.of("POST", "/api/admin/properties/1/approve", Allowed.ADMIN),
+                Arguments.of("POST", "/api/admin/properties/1/reject", Allowed.ADMIN),
                 Arguments.of("DELETE", "/api/admin/properties/1", Allowed.ADMIN));
     }
 

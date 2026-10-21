@@ -23,8 +23,11 @@ public final class Dtos {
             boolean furnished,
             @DecimalMin("-90") @DecimalMax("90") double latitude,
             @DecimalMin("-180") @DecimalMax("180") double longitude,
-            @Size(max = 500) @Pattern(regexp = "^$|^https?://.+", message = "must start with http:// or https://") String imageUrl,
-            @Size(max = 1000) String amenities) {}
+            @Size(max = 500) @Pattern(regexp = "^$|^https?://.+|^/api/images/\\d+$", message = "must start with http:// or https://") String imageUrl,
+            @Size(max = 1000) String amenities,
+            /** Uploaded photos (/api/images/{id}) or web links; the first one is the cover. Optional. */
+            @Size(max = 8, message = "can have at most 8 photos")
+            java.util.List<@Size(max = 300) @Pattern(regexp = "^https?://.+|^/api/images/\\d+$", message = "must be an uploaded photo or a web link") String> photos) {}
 
     public record ViewingRequest(@NotNull Long propertyId, @NotNull @FutureOrPresent LocalDate date,
                                  @NotNull LocalTime time, @Size(max = 500) String note) {}
@@ -36,7 +39,9 @@ public final class Dtos {
     public record PreferenceDto(@PositiveOrZero double budget, @Size(max = 100) String area,
                                 @Size(max = 30) String roomType, boolean furnished) {}
     public record RecommendationRequest(@PositiveOrZero double budget, String area, String roomType, boolean furnished) {}
-    public record ListingStatusRequest(@NotNull String status) {}
+    /** status: ACTIVE (approve/restore), REJECTED (needs a note), SUSPENDED or PENDING. */
+    public record ListingStatusRequest(@NotNull String status, @Size(max = 500) String note) {}
+    public record ListingRejectRequest(@NotBlank @Size(max = 500) String reason) {}
 
     // ---------- responses
     public record ViewingView(Long id, Long propertyId, String propertyTitle, Long tenantId, String tenantName,

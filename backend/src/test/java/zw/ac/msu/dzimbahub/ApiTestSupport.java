@@ -39,6 +39,7 @@ public abstract class ApiTestSupport {
     @Autowired protected AuditLogRepository auditLogs;
     @Autowired protected PreferenceRepository preferences;
     @Autowired protected OtpChallengeRepository otps;
+    @Autowired protected PropertyImageRepository propertyImages;
     @Autowired protected PasswordEncoder encoder;
     @Autowired protected JwtService jwt;
     @Autowired protected CapturingSmsSender sms;
@@ -46,7 +47,7 @@ public abstract class ApiTestSupport {
     @BeforeEach
     void cleanDatabase() {
         otps.deleteAll(); preferences.deleteAll(); bookings.deleteAll(); reviews.deleteAll(); messages.deleteAll();
-        viewings.deleteAll(); properties.deleteAll(); auditLogs.deleteAll(); users.deleteAll(); sms.clear();
+        viewings.deleteAll(); properties.deleteAll(); propertyImages.deleteAll(); auditLogs.deleteAll(); users.deleteAll(); sms.clear();
     }
 
     // ---------- fixtures

@@ -4,11 +4,14 @@ export type Property = {
   id: number; title: string; area: string; city: string; address: string; description: string;
   price: number; roomType: string; bedrooms: number; bathrooms: number; furnished: boolean;
   latitude: number; longitude: number; imageUrl: string; landlordName: string; rating: number; reviewCount: number;
-  amenities: string[]; amenitiesCsv?: string; ownerId?: number | null; listingStatus?: 'ACTIVE' | 'SUSPENDED';
+  amenities: string[]; amenitiesCsv?: string; ownerId?: number | null; listingStatus?: ListingStatus;
+  reviewNote?: string | null; photos?: string[]; createdAt?: string;
 };
+export type ListingStatus = 'PENDING' | 'ACTIVE' | 'REJECTED' | 'SUSPENDED';
 export type PropertyInput = {
   title: string; area: string; city: string; address: string; description: string; price: number; roomType: string;
   bedrooms: number; bathrooms: number; furnished: boolean; latitude: number; longitude: number; imageUrl: string; amenities: string;
+  photos: string[];
 };
 export type RecommendationRequest = { budget: number; area: string; roomType: string; furnished: boolean };
 export type Preferences = { budget: number; area: string; roomType: string; furnished: boolean };
@@ -20,6 +23,11 @@ export type UserRow = { id: number; fullName: string; email: string; phone?: str
 export type AuditRow = { id: number; actor?: string; action: string; targetType?: string; targetId?: string; detail?: string; createdAt: string };
 
 export const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+/** Uploaded photos are stored as "/api/images/12"; this turns them into a full address on the API server. */
+export function mediaUrl(url?: string | null): string {
+  if (!url) return '';
+  return url.startsWith('/api/') ? API.replace(/\/api\/?$/, '') + url : url;
+}
 const TOKEN_KEY = 'dzimbahub_token';
 const USER_KEY = 'dzimbahub_user';
 
@@ -51,6 +59,18 @@ export async function request<T>(path: string, options?: RequestInit): Promise<T
     throw new Error(body?.message || `The server returned an error (${res.status}).`);
   }
   return body as T;
+}
+
+/** Sends one photo as multipart form data (no JSON Content-Type, the browser sets the boundary). */
+async function uploadFile(path: string, file: Blob, name: string): Promise<{ id: number; url: string }> {
+  const form = new FormData();
+  form.append('file', file, name);
+  let res: Response;
+  try { res = await fetch(`${API}${path}`, { method: 'POST', headers: authHeaders(), body: form }); }
+  catch { throw new Error('Cannot reach the server. Check your internet connection and try again.'); }
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(body?.message || `The photo could not be uploaded (${res.status}).`);
+  return body as { id: number; url: string };
 }
 
 const post = <T,>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body: JSON.stringify(body ?? {}) });
@@ -86,6 +106,7 @@ export const api = {
     create: (p: PropertyInput) => post<Property>('/landlord/properties', p),
     update: (id: number, p: PropertyInput) => put<Property>(`/landlord/properties/${id}`, p),
     remove: (id: number) => del<{ message: string }>(`/landlord/properties/${id}`),
+    uploadImage: (file: Blob, name = 'photo.jpg') => uploadFile('/landlord/images', file, name),
     viewings: () => request<Viewing[]>('/landlord/viewings'),
     decide: (id: number, approve: boolean) => post<Viewing>(`/landlord/viewings/${id}/decision`, { approve }),
     messages: () => request<Msg[]>('/landlord/messages'),
@@ -99,7 +120,9 @@ export const api = {
     users: (status = '') => request<UserRow[]>(`/admin/users${status ? `?status=${status}` : ''}`),
     userAction: (id: number, action: 'approve' | 'reject' | 'suspend' | 'reactivate') => post<UserRow>(`/admin/users/${id}/${action}`),
     properties: () => request<Property[]>('/admin/properties'),
-    setListingStatus: (id: number, status: 'ACTIVE' | 'SUSPENDED') => post<Property>(`/admin/properties/${id}/status`, { status }),
+    setListingStatus: (id: number, status: ListingStatus) => post<Property>(`/admin/properties/${id}/status`, { status }),
+    approveListing: (id: number) => post<Property>(`/admin/properties/${id}/approve`),
+    rejectListing: (id: number, reason: string) => post<Property>(`/admin/properties/${id}/reject`, { reason }),
     removeListing: (id: number) => del<{ message: string }>(`/admin/properties/${id}`),
     audit: () => request<AuditRow[]>('/admin/audit')
   }

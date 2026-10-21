@@ -41,12 +41,19 @@ public class AdminController {
     @PostMapping("/users/{id}/reactivate") public UserView reactivate(Authentication a, @PathVariable Long id) { return admin.reactivate(a.getName(), id); }
 
     @GetMapping("/properties") public List<Property> properties() { return listings.all(); }
+    @GetMapping("/properties/pending") public List<Property> pendingListings() { return listings.pending(); }
+    @PostMapping("/properties/{id}/approve")
+    public Property approveListing(Authentication a, @PathVariable Long id) { return listings.setStatus(a.getName(), id, ListingStatus.ACTIVE, null); }
+    @PostMapping("/properties/{id}/reject")
+    public Property rejectListing(Authentication a, @PathVariable Long id, @Valid @RequestBody ListingRejectRequest r) {
+        return listings.setStatus(a.getName(), id, ListingStatus.REJECTED, r.reason());
+    }
     @PostMapping("/properties/{id}/status")
     public Property setStatus(Authentication a, @PathVariable Long id, @Valid @RequestBody ListingStatusRequest r) {
         ListingStatus s;
         try { s = ListingStatus.valueOf(r.status().trim().toUpperCase()); }
-        catch (IllegalArgumentException e) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status must be ACTIVE or SUSPENDED."); }
-        return listings.setStatus(a.getName(), id, s);
+        catch (IllegalArgumentException e) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status must be ACTIVE, REJECTED, SUSPENDED or PENDING."); }
+        return listings.setStatus(a.getName(), id, s, r.note());
     }
     @DeleteMapping("/properties/{id}") public Map<String, String> delete(Authentication a, @PathVariable Long id) { listings.adminDelete(a.getName(), id); return Map.of("message", "Listing removed."); }
 }

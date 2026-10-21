@@ -30,6 +30,10 @@ public class Property {
     /** Id of the landlord account that owns this listing (null for listings created before ownership existed). */
     private Long ownerId;
     @Enumerated(EnumType.STRING) @Column(length = 20) private ListingStatus listingStatus = ListingStatus.ACTIVE;
+    /** Administrator's note to the landlord, e.g. the reason a listing was rejected. */
+    @Column(length = 500) private String reviewNote;
+    /** Photo addresses, comma separated. The first one is also stored in imageUrl as the cover photo. */
+    @Column(length = 2000) private String photoUrlsCsv;
     private Instant createdAt = Instant.now();
 
     public Long getId() { return id; }
@@ -52,7 +56,13 @@ public class Property {
     public Long getOwnerId() { return ownerId; }
     public Instant getCreatedAt() { return createdAt; }
     public ListingStatus getListingStatus() { return listingStatus == null ? ListingStatus.ACTIVE : listingStatus; }
+    public String getReviewNote() { return reviewNote; }
     @JsonProperty("amenitiesCsv") public String getAmenitiesCsv() { return amenitiesCsv; }
+    /** All photos of the listing; older listings without a gallery return just their cover image. */
+    public List<String> getPhotos() {
+        if (photoUrlsCsv == null || photoUrlsCsv.isBlank()) return imageUrl == null ? List.of() : List.of(imageUrl);
+        return Arrays.stream(photoUrlsCsv.split(",")).map(String::trim).filter(s -> !s.isBlank()).toList();
+    }
     public List<String> getAmenities() {
         return amenitiesCsv == null ? List.of()
                 : Arrays.stream(amenitiesCsv.split(",")).map(String::trim).filter(s -> !s.isBlank()).toList();
@@ -78,4 +88,6 @@ public class Property {
     public void setAmenitiesCsv(String v) { amenitiesCsv = v; }
     public void setOwnerId(Long v) { ownerId = v; }
     public void setListingStatus(ListingStatus v) { listingStatus = v; }
+    public void setReviewNote(String v) { reviewNote = v; }
+    public void setPhotos(List<String> v) { photoUrlsCsv = v == null ? null : String.join(",", v); }
 }

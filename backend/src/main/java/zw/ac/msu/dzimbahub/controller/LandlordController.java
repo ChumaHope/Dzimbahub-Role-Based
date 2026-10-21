@@ -1,8 +1,10 @@
 package zw.ac.msu.dzimbahub.controller;
 
 import jakarta.validation.Valid;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import zw.ac.msu.dzimbahub.dto.Dtos.*;
 import zw.ac.msu.dzimbahub.model.Property;
 import zw.ac.msu.dzimbahub.service.*;
@@ -17,10 +19,15 @@ public class LandlordController {
     private final ViewingService viewings;
     private final MessagingService messaging;
     private final BookingService bookings;
+    private final ImageService images;
 
-    public LandlordController(ListingService listings, ViewingService viewings, MessagingService messaging, BookingService bookings) {
-        this.listings = listings; this.viewings = viewings; this.messaging = messaging; this.bookings = bookings;
+    public LandlordController(ListingService listings, ViewingService viewings, MessagingService messaging, BookingService bookings, ImageService images) {
+        this.listings = listings; this.viewings = viewings; this.messaging = messaging; this.bookings = bookings; this.images = images;
     }
+
+    /** Upload one photo from the landlord's device (form field "file"). Returns {id, url}. */
+    @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ImageService.Uploaded uploadImage(Authentication a, @RequestParam("file") MultipartFile file) { return images.upload(a.getName(), file); }
 
     @GetMapping("/properties") public List<Property> mine(Authentication a) { return listings.mine(a.getName()); }
     @PostMapping("/properties") public Property create(Authentication a, @Valid @RequestBody PropertyRequest r) { return listings.create(a.getName(), r); }

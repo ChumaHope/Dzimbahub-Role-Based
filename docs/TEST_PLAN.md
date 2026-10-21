@@ -53,3 +53,16 @@ Every endpoint is called as anonymous, tenant, landlord and administrator. Expec
 | M9 | Admin suspends a listing | Listing disappears from Find Houses; Restore brings it back | |
 | M10 | Admin suspends the tenant; tenant clicks any action | Tenant is signed out / receives a message | |
 | M11 | Open /dashboard in a narrow (phone-width) window | Tables scroll sideways; buttons remain usable | |
+
+## Listing approval and photo uploads
+
+| ID | Requirement | Test |
+|----|-------------|------|
+| LST-01 | A new listing is PENDING and hidden from the public until an administrator approves it; the landlord is notified | ListingApprovalTest |
+| LST-02 | A rejection needs a reason; the landlord sees it; editing resubmits the listing | ListingApprovalTest |
+| LST-03 | Editing an approved listing sends it back for approval; a suspended listing stays suspended | ListingApprovalTest |
+| LST-04 | Only administrators can approve listings | ListingApprovalTest |
+| IMG-01 | A landlord uploads a photo from their device and anyone can view it | ListingApprovalTest |
+| IMG-02 | Only real JPG/PNG/WebP files are accepted, and only from landlords | ListingApprovalTest |
+| IMG-03 | Uploaded photos form the listing gallery; removed photos are deleted | ListingApprovalTest |
+| IMG-04 | A landlord cannot attach another landlord's photo | ListingApprovalTest |

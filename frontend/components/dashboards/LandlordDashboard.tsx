@@ -2,13 +2,14 @@
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useState } from 'react';
-import { api, Booking, Msg, Property, PropertyInput, Viewing } from '../../lib/api';
+import { api, Booking, mediaUrl, Msg, Property, PropertyInput, Viewing } from '../../lib/api';
 import { AuthUser } from '../../lib/auth';
 import MessageThread from '../MessageThread';
+import PhotoUploader from '../PhotoUploader';
 import { ActionButton, Badge, Empty, Flash, Notice, Stat, run } from '../ui';
 
 const LocationPicker = dynamic(() => import('../LocationPicker'), { ssr: false, loading: () => <div className="empty small">Loading map…</div> });
-const BLANK: PropertyInput = { title: '', area: '', city: 'Harare', address: '', description: '', price: 0, roomType: 'Single', bedrooms: 1, bathrooms: 1, furnished: false, latitude: -17.8252, longitude: 31.0335, imageUrl: '', amenities: '' };
+const BLANK: PropertyInput = { title: '', area: '', city: 'Harare', address: '', description: '', price: 0, roomType: 'Single', bedrooms: 1, bathrooms: 1, furnished: false, latitude: -17.8252, longitude: 31.0335, imageUrl: '', amenities: '', photos: [] };
 
 export default function LandlordDashboard({ user }: { user: AuthUser }) {
   const [props, setProps] = useState<Property[]>([]);
@@ -35,18 +36,24 @@ export default function LandlordDashboard({ user }: { user: AuthUser }) {
   function startEdit(p: Property) {
     setForm({ title: p.title, area: p.area, city: p.city, address: p.address, description: p.description, price: p.price, roomType: p.roomType,
       bedrooms: p.bedrooms, bathrooms: p.bathrooms, furnished: p.furnished, latitude: p.latitude, longitude: p.longitude,
-      imageUrl: p.imageUrl, amenities: p.amenitiesCsv ?? p.amenities.join(',') });
+      imageUrl: p.imageUrl, amenities: p.amenitiesCsv ?? p.amenities.join(','),
+      photos: p.photos?.length ? p.photos : (p.imageUrl ? [p.imageUrl] : []) });
     setEditing(p.id); setShowForm(true); window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   function valid() {
     if (!form.title.trim() || !form.area.trim() || !form.address.trim()) return 'Title, area and address are required.';
     if (!(form.price > 0)) return 'Enter a monthly rent greater than zero.';
-    if (form.imageUrl && !/^https?:\/\//.test(form.imageUrl)) return 'The image link must start with http:// or https://';
+    if (!form.photos.length) return 'Add at least one photo so tenants can see the place.';
     return '';
   }
   async function save() {
     const problem = valid(); if (problem) { setFlash({ kind: 'error', text: problem }); return; }
-    const ok = await run(() => (editing ? api.landlord.update(editing, form) : api.landlord.create(form)), setFlash, editing ? 'Listing updated.' : 'Listing published. Tenants can now find it.');
+    const body = { ...form, imageUrl: form.photos[0] ?? '' };
+    const wasSuspended = editing != null && props.find(p => p.id === editing)?.listingStatus === 'SUSPENDED';
+    const ok = await run(() => (editing ? api.landlord.update(editing, body) : api.landlord.create(body)), setFlash,
+      wasSuspended ? 'Changes saved. This listing stays hidden until an administrator restores it.'
+        : editing ? 'Changes saved and sent to an administrator for approval. The listing is hidden until it is approved.'
+        : 'Listing submitted. An administrator will review it before tenants can see it.');
     if (ok) { setShowForm(false); setEditing(null); await load(); }
   }
 
@@ -61,6 +68,7 @@ export default function LandlordDashboard({ user }: { user: AuthUser }) {
       <Notice flash={flash} onClose={() => setFlash(null)} />
       <div className="dashboard">
         <Stat label="My listings" value={loading ? '…' : props.length} />
+        <Stat label="Awaiting approval" value={loading ? '…' : props.filter(p => p.listingStatus === 'PENDING').length} tone={props.some(p => p.listingStatus === 'PENDING') ? 'warn' : undefined} />
         <Stat label="Viewing requests to answer" value={loading ? '…' : waiting.length} tone={waiting.length ? 'warn' : undefined} />
         <Stat label="Enquiries received" value={loading ? '…' : unanswered} />
         <Stat label="Confirmed bookings" value={loading ? '…' : bookings.filter(b => b.status === 'CONFIRMED').length} tone="good" />
@@ -80,13 +88,14 @@ export default function LandlordDashboard({ user }: { user: AuthUser }) {
             <label>Bathrooms<input className="input" type="number" min={0} max={20} value={form.bathrooms} onChange={e => set('bathrooms', Number(e.target.value))} /></label>
             <label className="check"><input type="checkbox" checked={form.furnished} onChange={e => set('furnished', e.target.checked)} /> Furnished</label>
             <label className="wide">Amenities (comma separated)<input className="input" value={form.amenities} onChange={e => set('amenities', e.target.value)} placeholder="WiFi, Security, Kitchen" /></label>
-            <label className="wide">Photo link (optional)<input className="input" value={form.imageUrl} onChange={e => set('imageUrl', e.target.value)} placeholder="https://…" /></label>
+            <div className="wide"><b>Photos</b>
+              <PhotoUploader photos={form.photos} onChange={next => set('photos', next)} onError={text => setFlash({ kind: 'error', text })} /></div>
             <label className="wide">Description<textarea className="input" rows={3} maxLength={1500} value={form.description} onChange={e => set('description', e.target.value)} /></label>
             <div className="wide"><b>Location</b> <span className="muted">Click the map to place the pin ({form.latitude}, {form.longitude})</span>
               <LocationPicker lat={form.latitude} lng={form.longitude} onPick={(la, lo) => setForm(f => ({ ...f, latitude: la, longitude: lo }))} /></div>
           </div>
           <div className="row" style={{ marginTop: 14 }}>
-            <ActionButton busyLabel="Saving…" onClick={save}>{editing ? 'Save changes' : 'Publish listing'}</ActionButton>
+            <ActionButton busyLabel="Saving…" onClick={save}>{editing ? 'Save and resubmit' : 'Submit for approval'}</ActionButton>
             <button className="btn secondary" onClick={() => { setShowForm(false); setEditing(null); }}>Cancel</button>
           </div>
         </section>
@@ -94,11 +103,16 @@ export default function LandlordDashboard({ user }: { user: AuthUser }) {
 
       <section className="section"><h2>My listings</h2>
         {!props.length ? <Empty>You have no listings yet. Choose “Add a listing”.</Empty> : (
-          <div className="table-wrap"><table className="table"><thead><tr><th>Listing</th><th>Rent</th><th>Rating</th><th>Visibility</th><th></th></tr></thead><tbody>
+          <div className="table-wrap"><table className="table"><thead><tr><th>Listing</th><th>Rent</th><th>Rating</th><th>Status</th><th></th></tr></thead><tbody>
             {props.map(p => (
-              <tr key={p.id}><td><Link href={`/properties/${p.id}`}>{p.title}</Link><br /><span className="muted">{p.area}, {p.city}</span></td>
+              <tr key={p.id}><td><div className="listing-cell"><img className="thumb" src={mediaUrl(p.imageUrl)} alt="" />
+                <div>{p.listingStatus === 'ACTIVE' ? <Link href={`/properties/${p.id}`}>{p.title}</Link> : <b>{p.title}</b>}<br /><span className="muted">{p.area}, {p.city}</span></div></div></td>
                 <td>US$ {p.price}</td><td>{p.reviewCount ? `${p.rating.toFixed(1)} (${p.reviewCount})` : 'No reviews'}</td>
-                <td><Badge status={p.listingStatus === 'SUSPENDED' ? 'SUSPENDED' : 'ACTIVE'} />{p.listingStatus === 'SUSPENDED' && <div className="muted">Hidden by an administrator</div>}</td>
+                <td><Badge status={p.listingStatus ?? 'ACTIVE'} />
+                  {p.listingStatus === 'PENDING' && <div className="muted">Waiting for an administrator to approve it</div>}
+                  {p.listingStatus === 'ACTIVE' && <div className="muted">Visible to tenants</div>}
+                  {p.listingStatus === 'REJECTED' && <div className="review-note">Not approved: {p.reviewNote || 'no reason given'}. Edit and save to resubmit.</div>}
+                  {p.listingStatus === 'SUSPENDED' && <div className="muted">Hidden by an administrator{p.reviewNote ? `: ${p.reviewNote}` : ''}</div>}</td>
                 <td className="actions"><button className="btn secondary small" onClick={() => startEdit(p)}>Edit</button>
                   <ActionButton className="danger small" busyLabel="Removing…" onClick={async () => {
                     if (!window.confirm(`Remove “${p.title}”? Its viewing requests, messages and reviews will also be removed.`)) return;
