@@ -2,7 +2,7 @@ import { API, Role } from './api';
 
 export type AuthUser = { id: number; fullName: string; email: string; role: Role };
 export type AuthResult = { token: string; user: AuthUser };
-export type Challenge = { challengeId: string; phoneHint: string; devCode?: string };
+export type Challenge = { challengeId: string; phoneHint: string; channel?: 'WHATSAPP' | 'SMS'; devCode?: string };
 
 const TOKEN_KEY = 'dzimbahub_token';
 const USER_KEY = 'dzimbahub_user';
@@ -39,7 +39,7 @@ async function authPost<T>(path: string, body: object): Promise<T> {
 /** Step 1 of sign-up: creates a request that an administrator must approve. No token is returned. */
 export const signupRequest = (body: { fullName: string; email: string; phone: string; password: string; role: 'TENANT' | 'LANDLORD' }) =>
   authPost<{ status: string; message: string }>('/signup', body);
-/** Step 1 of sign-in: checks e-mail and password and sends a code by text message. */
+/** Step 1 of sign-in: checks e-mail and password and sends a code by WhatsApp (or SMS). */
 export const loginRequest = (body: { email: string; password: string }) => authPost<Challenge>('/login', body);
-/** Step 2 of sign-in: checks the text-message code and returns the session token. */
+/** Step 2 of sign-in: checks the code and returns the session token. */
 export const verifyCode = (body: { challengeId: string; code: string }) => authPost<AuthResult>('/verify-otp', body);

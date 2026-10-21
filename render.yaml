@@ -36,3 +36,13 @@ services:
         sync: false
       - key: TWILIO_FROM
         sync: false
+      - key: OTP_CHANNEL
+        value: whatsapp
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_ACCESS_TOKEN
+        sync: false
+      - key: WHATSAPP_TEMPLATE_NAME
+        value: dzimbahub_login_code
+      - key: WHATSAPP_FALLBACK_TO_SMS
+        value: true

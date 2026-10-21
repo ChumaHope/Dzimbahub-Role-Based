@@ -57,7 +57,8 @@ class AuthApprovalFlowTest extends ApiTestSupport {
     void approvedUserSignsInWithCode() throws Exception {
         approved("tenant@test.local", UserRole.TENANT);
         JsonNode challenge = read(doPost("/api/auth/login", null, login("tenant@test.local"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.devCode").doesNotExist()));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.devCode").doesNotExist())
+                .andExpect(jsonPath("$.channel").value("SMS")));
         assertThat(sms.all()).hasSize(1);
         String code = sms.lastCode();
         JsonNode result = read(doPost("/api/auth/verify-otp", null, Map.of("challengeId", challenge.get("challengeId").asText(), "code", code))

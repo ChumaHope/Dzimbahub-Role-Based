@@ -18,7 +18,7 @@ export default function SignupPage() {
     e.preventDefault(); setError('');
     if (password.length < 8) { setError('Use a password with at least 8 characters.'); return; }
     if (password !== confirm) { setError('The passwords do not match.'); return; }
-    if (!/^\+?[0-9]{9,15}$/.test(phone.trim())) { setError('Enter a phone number such as +263771234567. Sign-in codes are sent to it by text message.'); return; }
+    if (!/^\+?[0-9]{9,15}$/.test(phone.trim())) { setError('Enter a phone number such as +263771234567. Use your WhatsApp number — sign-in codes are sent to it.'); return; }
     setBusy(true);
     try { const r = await signupRequest({ fullName, email, phone: phone.trim(), password, role }); setDone(r.message); }
     catch (err) { setError(err instanceof Error ? err.message : 'Unable to send your request. Please try again.'); }

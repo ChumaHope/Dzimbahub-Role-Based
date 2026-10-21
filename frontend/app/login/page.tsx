@@ -19,7 +19,7 @@ export default function LoginPage() {
     try {
       const c = await loginRequest({ email, password });
       setChallenge(c); setCode('');
-      setInfo(`We sent a 6-digit code by text message to ${c.phoneHint}.`);
+      setInfo(`We sent a 6-digit code by ${c.channel === 'WHATSAPP' ? 'WhatsApp' : 'text message'} to ${c.phoneHint}.`);
     } catch (err) { setError(err instanceof Error ? err.message : 'Unable to sign in. Please try again.'); }
     finally { setBusy(false); }
   }
@@ -35,14 +35,14 @@ export default function LoginPage() {
     <main className="auth-page">
       <div className="auth-side">
         <span className="auth-kicker">WELCOME BACK</span><h1>Your next home is closer than you think.</h1>
-        <p>Sign in with your password and a one-time code sent to your phone by text message.</p>
+        <p>Sign in with your password and a one-time code sent to your phone on WhatsApp.</p>
         <div className="auth-feature">⌖ &nbsp; Location-aware property discovery</div>
         <div className="auth-feature">✦ &nbsp; A dashboard built for your role</div>
       </div>
       <section className="auth-panel"><div className="auth-card">
         <span className="pill">{challenge ? 'STEP 2 OF 2' : 'STEP 1 OF 2'}</span>
         <h2>{challenge ? 'Enter your code' : 'Log in'}</h2>
-        <p className="muted">{challenge ? 'Check your text messages.' : 'Only accounts approved by an administrator can sign in.'}</p>
+        <p className="muted">{challenge ? (challenge.channel === 'WHATSAPP' ? 'Check your WhatsApp messages. Tap "Copy code" and paste it below.' : 'Check your text messages.') : 'Only accounts approved by an administrator can sign in.'}</p>
         {error && <div className="auth-error" role="alert">{error}</div>}
         {info && !error && <div className="flash ok" role="status"><span>{info}</span></div>}
         {challenge?.devCode && <div className="notice" style={{ margin: '0 0 14px' }}>Development mode: your code is <b>{challenge.devCode}</b></div>}

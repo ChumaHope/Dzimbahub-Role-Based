@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import zw.ac.msu.dzimbahub.otp.OtpDeliveryException;
 import zw.ac.msu.dzimbahub.security.JwtService;
 import zw.ac.msu.dzimbahub.service.AuditService;
 import java.util.Locale;
@@ -22,7 +23,7 @@ import java.util.Map;
  * Sign-up and sign-in.
  * 1. POST /signup  creates a PENDING account. No token is issued.
  * 2. An administrator approves the request.
- * 3. POST /login   checks e-mail and password, then sends a six-digit code by text message.
+ * 3. POST /login   checks e-mail and password, then sends a six-digit code by WhatsApp (or SMS).
  * 4. POST /verify-otp checks the code and only then issues the JWT.
  */
 @RestController
@@ -50,7 +51,7 @@ public class AuthController {
     public record UserResponse(Long id, String fullName, String email, String role) {}
     public record AuthResponse(String token, UserResponse user) {}
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record ChallengeResponse(String challengeId, String phoneHint, String devCode) {}
+    public record ChallengeResponse(String challengeId, String phoneHint, String channel, String devCode) {}
 
     private UserResponse toResponse(AppUser u) { return new UserResponse(u.getId(), u.getFullName(), u.getEmail(), u.getRole().name()); }
 
@@ -91,9 +92,15 @@ public class AuthController {
         }
         if (user.getPhone() == null || user.getPhone().isBlank())
             return reply(HttpStatus.FORBIDDEN, "No phone number is registered for this account. Please contact the administrator.");
-        OtpService.Issued issued = otp.issue(user);
-        audit.record(user.getEmail(), "LOGIN_CODE_SENT", "User", user.getId(), null);
-        return ResponseEntity.ok(new ChallengeResponse(issued.challengeId(), hint(user.getPhone()), exposeCode ? issued.code() : null));
+        OtpService.Issued issued;
+        try {
+            issued = otp.issue(user);
+        } catch (OtpDeliveryException e) {
+            return reply(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage());
+        }
+        audit.record(user.getEmail(), "LOGIN_CODE_SENT", "User", user.getId(), issued.channel().name());
+        return ResponseEntity.ok(new ChallengeResponse(issued.challengeId(), hint(user.getPhone()),
+                issued.channel().name(), exposeCode ? issued.code() : null));
     }
 
     @PostMapping("/verify-otp")
