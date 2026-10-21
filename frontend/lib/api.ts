@@ -19,6 +19,12 @@ export type Viewing = { id: number; propertyId: number; propertyTitle: string; t
 export type Msg = { id: number; propertyId: number; propertyTitle: string; senderId: number; senderName: string; recipientId: number; recipientName: string; body: string; createdAt: string; mine: boolean };
 export type Review = { id: number; propertyId: number; tenantName: string; rating: number; comment?: string; createdAt: string };
 export type Booking = { id: number; propertyId: number; propertyTitle: string; tenantId: number; tenantName: string; amount: number; status: 'PENDING' | 'CONFIRMED'; paymentRef?: string; createdAt: string };
+export type PaymentsConfig = { provider: 'PAYNOW' | 'SIMULATED'; methods: string[]; testMode: boolean };
+export type PayMethod = 'ECOCASH' | 'ONEMONEY' | 'WEB';
+export type Payment = {
+  id: number; bookingId: number; method: PayMethod; phone?: string; amount: number; reference?: string;
+  status: 'PENDING' | 'PAID' | 'FAILED'; providerStatus?: string; paynowReference?: string; message?: string; redirectUrl?: string; createdAt: string;
+};
 export type UserRow = { id: number; fullName: string; email: string; phone?: string; role: Role; status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED'; createdAt: string; authenticator?: boolean };
 export type AuditRow = { id: number; actor?: string; action: string; targetType?: string; targetId?: string; detail?: string; createdAt: string };
 
@@ -83,6 +89,7 @@ export const api = {
   property: (id: number) => request<Property>(`/properties/${id}`),
   reviewsFor: (id: number) => request<Review[]>(`/properties/${id}/reviews`),
   recommendations: (body: RecommendationRequest) => post<Property[]>('/recommendations', body),
+  paymentsConfig: () => request<PaymentsConfig>('/payments/config'),
 
   // tenant
   tenant: {
@@ -96,6 +103,9 @@ export const api = {
     bookings: () => request<Booking[]>('/tenant/bookings'),
     book: (propertyId: number) => post<Booking>('/tenant/bookings', { propertyId }),
     pay: (id: number) => post<Booking>(`/tenant/bookings/${id}/pay`),
+    startPayment: (bookingId: number, method: PayMethod, phone?: string) => post<Payment>(`/tenant/bookings/${bookingId}/paynow`, { method, phone }),
+    payments: () => request<Payment[]>('/tenant/payments'),
+    checkPayment: (id: number) => post<Payment>(`/tenant/payments/${id}/check`),
     preferences: () => request<Preferences>('/tenant/preferences'),
     savePreferences: (p: Preferences) => put<Preferences>('/tenant/preferences', p)
   },

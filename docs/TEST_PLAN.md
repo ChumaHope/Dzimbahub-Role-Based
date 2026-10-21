@@ -77,3 +77,13 @@ Every endpoint is called as anonymous, tenant, landlord and administrator. Expec
 | TOTP-04 | Only an administrator can reset a lost authenticator; the user then sets it up again | TotpFlowTest |
 | TOTP-05 | Accounts that are not approved cannot start setup | TotpFlowTest |
 | TOTP-RFC | Codes match the RFC 6238 SHA-1 test values | TotpTest |
+
+## Paynow payments
+
+| ID | Requirement | Test |
+|----|-------------|------|
+| PAY-01 | EcoCash: a correctly signed request is sent; a Paid status confirms the booking with Paynow's reference | PaymentFlowTest |
+| PAY-02 | Paynow's signed status update confirms the booking; a forged update is rejected | PaymentFlowTest |
+| PAY-03 | Cancelled or declined payments leave the booking unpaid and can be retried | PaymentFlowTest |
+| PAY-04 | A Paid status with the wrong amount does not confirm the booking | PaymentFlowTest |
+| PAY-05 | Card/web payments return Paynow's page; phone, method and ownership are checked; simulated pay is off | PaymentFlowTest |

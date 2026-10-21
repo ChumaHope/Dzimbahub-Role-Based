@@ -1,9 +1,10 @@
 'use client';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { api, Booking, Msg, Preferences, Viewing } from '../../lib/api';
+import { api, Booking, Msg, PaymentsConfig, Preferences, Viewing } from '../../lib/api';
 import { AuthUser } from '../../lib/auth';
 import MessageThread from '../MessageThread';
+import PayPanel from '../PayPanel';
 import { ActionButton, Badge, Empty, Flash, Notice, Stat, fmtDate, run } from '../ui';
 
 export default function TenantDashboard({ user }: { user: AuthUser }) {
@@ -13,6 +14,8 @@ export default function TenantDashboard({ user }: { user: AuthUser }) {
   const [prefs, setPrefs] = useState<Preferences>({ budget: 0, area: '', roomType: '', furnished: false });
   const [flash, setFlash] = useState<Flash>(null);
   const [loading, setLoading] = useState(true);
+  const [payConfig, setPayConfig] = useState<PaymentsConfig>({ provider: 'SIMULATED', methods: [], testMode: false });
+  const [paying, setPaying] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -21,7 +24,23 @@ export default function TenantDashboard({ user }: { user: AuthUser }) {
     } catch (e) { setFlash({ kind: 'error', text: e instanceof Error ? e.message : 'Could not load your dashboard.' }); }
     finally { setLoading(false); }
   }, []);
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); api.paymentsConfig().then(setPayConfig).catch(() => {}); }, [load]);
+
+  // Back from Paynow's web page (/dashboard?payment=ID): ask for the result, then tidy the address bar.
+  useEffect(() => {
+    const id = Number(new URLSearchParams(window.location.search).get('payment'));
+    if (!id) return;
+    window.history.replaceState(null, '', window.location.pathname);
+    (async () => {
+      try {
+        const p = await api.tenant.checkPayment(id);
+        setFlash(p.status === 'PAID' ? { kind: 'ok', text: 'Payment received. Your booking is confirmed.' }
+          : p.status === 'FAILED' ? { kind: 'error', text: p.message || 'The payment did not go through. You can try again.' }
+          : { kind: 'ok', text: 'Paynow is still processing your payment. Refresh in a minute to see the result.' });
+        await load();
+      } catch (e) { setFlash({ kind: 'error', text: e instanceof Error ? e.message : 'Could not check the payment.' }); }
+    })();
+  }, [load]);
 
   const pending = viewings.filter(v => v.status === 'PENDING').length;
   const approved = viewings.filter(v => v.status === 'APPROVED').length;
@@ -58,10 +77,16 @@ export default function TenantDashboard({ user }: { user: AuthUser }) {
           <div className="table-wrap"><table className="table"><thead><tr><th>Property</th><th>Amount</th><th>Status</th><th>Reference</th><th></th></tr></thead><tbody>
             {bookings.map(b => (
               <tr key={b.id}><td>{b.propertyTitle}</td><td>US$ {b.amount}</td><td><Badge status={b.status} /></td><td>{b.paymentRef ?? '—'}</td>
-                <td className="actions">{b.status === 'PENDING' && <ActionButton className="orange small" busyLabel="Processing…"
-                  onClick={async () => { if (await run(() => api.tenant.pay(b.id), setFlash, 'Booking confirmed. This was a simulated payment; no money was charged.')) await load(); }}>Confirm (simulated payment)</ActionButton>}</td></tr>))}
+                <td className="actions">{b.status === 'PENDING' && (payConfig.provider === 'PAYNOW'
+                  ? <button className="btn orange small" onClick={() => setPaying(paying === b.id ? null : b.id)}>{paying === b.id ? 'Close' : 'Pay now'}</button>
+                  : <ActionButton className="orange small" busyLabel="Processing…"
+                    onClick={async () => { if (await run(() => api.tenant.pay(b.id), setFlash, 'Booking confirmed. This was a simulated payment; no money was charged.')) await load(); }}>Confirm (simulated payment)</ActionButton>)}</td></tr>))}
           </tbody></table></div>)}
-        <p className="muted">Payments in this system are simulated for demonstration. No real money moves.</p>
+        {paying != null && bookings.some(b => b.id === paying && b.status === 'PENDING') &&
+          <PayPanel key={paying} booking={bookings.find(b => b.id === paying)!} testMode={payConfig.testMode}
+            onClose={() => setPaying(null)}
+            onDone={async text => { setFlash({ kind: 'ok', text }); setPaying(null); await load(); }} />}
+        <p className="muted">{payConfig.provider === 'PAYNOW' ? 'Payments are processed securely by Paynow (EcoCash, OneMoney, cards).' : 'Payments in this system are simulated for demonstration. No real money moves.'}</p>
       </section>
 
       <section className="section two-col">

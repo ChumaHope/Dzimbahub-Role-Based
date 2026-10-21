@@ -59,6 +59,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/login", "/api/auth/signup", "/api/auth/verify-otp", "/api/auth/send-code", "/api/health", "/error").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/properties", "/api/properties/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/images/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/payments/config").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/payments/paynow/result").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/recommendations").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/landlord/**").hasRole("LANDLORD")

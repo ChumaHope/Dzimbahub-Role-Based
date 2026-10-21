@@ -29,6 +29,7 @@ class RoleAccessMatrixTest extends ApiTestSupport {
                 Arguments.of("POST", "/api/recommendations", Allowed.PUBLIC),
                 Arguments.of("GET", "/api/health", Allowed.PUBLIC),
                 Arguments.of("GET", "/api/images/1", Allowed.PUBLIC),
+                Arguments.of("GET", "/api/payments/config", Allowed.PUBLIC),
                 // any signed-in user, including the catch-all (unknown paths are NOT open)
                 Arguments.of("GET", "/api/auth/me", Allowed.ANY_SIGNED_IN),
                 Arguments.of("GET", "/api/unknown/path", Allowed.ANY_SIGNED_IN),
@@ -39,6 +40,9 @@ class RoleAccessMatrixTest extends ApiTestSupport {
                 Arguments.of("POST", "/api/tenant/enquiries", Allowed.TENANT),
                 Arguments.of("GET", "/api/tenant/messages", Allowed.TENANT),
                 Arguments.of("POST", "/api/tenant/messages/1/reply", Allowed.TENANT),
+                Arguments.of("POST", "/api/tenant/bookings/1/paynow", Allowed.TENANT),
+                Arguments.of("GET", "/api/tenant/payments", Allowed.TENANT),
+                Arguments.of("POST", "/api/tenant/payments/1/check", Allowed.TENANT),
                 Arguments.of("POST", "/api/tenant/reviews", Allowed.TENANT),
                 Arguments.of("POST", "/api/tenant/bookings", Allowed.TENANT),
                 Arguments.of("GET", "/api/tenant/bookings", Allowed.TENANT),

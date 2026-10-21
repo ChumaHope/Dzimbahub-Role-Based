@@ -1,5 +1,6 @@
 package zw.ac.msu.dzimbahub.service;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,10 +27,13 @@ public class BookingService {
     private final CurrentUsers current;
     private final AuditService audit;
     private final SecureRandom random = new SecureRandom();
+    private final boolean simulated;
 
     public BookingService(BookingRepository bookings, PropertyRepository properties, ViewingRepository viewings,
-                          CurrentUsers current, AuditService audit) {
+                          CurrentUsers current, AuditService audit,
+                          @Value("${app.payments.provider:simulated}") String provider) {
         this.bookings = bookings; this.properties = properties; this.viewings = viewings; this.current = current; this.audit = audit;
+        this.simulated = !"paynow".equalsIgnoreCase(provider.trim());
     }
 
     BookingView view(Booking b) {
@@ -64,6 +68,8 @@ public class BookingService {
 
     @Transactional
     public BookingView pay(String tenantEmail, Long id) {
+        if (!simulated)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Payments go through Paynow. Choose \"Pay now\" on your dashboard.");
         AppUser tenant = current.require(tenantEmail);
         Booking b = bookings.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Booking not found."));
         if (!b.getTenantId().equals(tenant.getId()))

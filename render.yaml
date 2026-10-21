@@ -42,3 +42,13 @@ services:
         value: whatsapp:+14155238886
       - key: WHATSAPP_FALLBACK_TO_SMS
         value: true
+      - key: PAYMENT_PROVIDER
+        sync: false
+      - key: PAYNOW_INTEGRATION_ID
+        sync: false
+      - key: PAYNOW_INTEGRATION_KEY
+        sync: false
+      - key: PAYNOW_AUTH_EMAIL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
