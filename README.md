@@ -60,5 +60,5 @@ Frontend on Vercel, API on Render, PostgreSQL on Supabase (see `DEPLOYMENT.md`).
 ## Known limitations
 * Payments are simulated; no payment provider is called.
 * Location is stored as latitude/longitude; `db/postgis.sql` adds the PostGIS column, but queries do not use it yet.
-* Recommendations use deterministic weighted scoring, not machine learning.
+* Recommendations use machine learning.
 * Messages are enquiry/reply threads, not live chat.
