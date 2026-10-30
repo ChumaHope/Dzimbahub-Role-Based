@@ -29,7 +29,7 @@ services:
       - key: SEED_DEMO_DATA
         value: false
       - key: SMS_PROVIDER
-        value: twilio
+        value: console
       - key: TWILIO_ACCOUNT_SID
         sync: false
       - key: TWILIO_AUTH_TOKEN
