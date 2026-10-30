@@ -36,19 +36,26 @@ public class ListingService {
     private final ImageService images;
     private final AppUserRepository users;
     private final SmsSender sms;
+    private final ReservationService reservations;
 
     public ListingService(PropertyRepository properties, ViewingRepository viewings, MessageRepository messages,
                           ReviewRepository reviews, BookingRepository bookings, CurrentUsers current, AuditService audit,
-                          ImageService images, AppUserRepository users, SmsSender sms) {
+                          ImageService images, AppUserRepository users, SmsSender sms, ReservationService reservations) {
         this.properties = properties; this.viewings = viewings; this.messages = messages;
         this.reviews = reviews; this.bookings = bookings; this.current = current; this.audit = audit;
-        this.images = images; this.users = users; this.sms = sms;
+        this.images = images; this.users = users; this.sms = sms; this.reservations = reservations;
     }
 
     static ResponseStatusException notFound() { return new ResponseStatusException(HttpStatus.NOT_FOUND, "Property not found."); }
 
     // ---- public
-    public List<Property> publicList() { return properties.findAllByOrderByRatingDesc().stream().filter(Property::isActive).toList(); }
+    /** Approved listings, best rated first; reserved homes are listed after the available ones. */
+    public List<Property> publicList() {
+        return properties.findAllByOrderByRatingDesc().stream().filter(Property::isActive)
+                .sorted(java.util.Comparator.comparing(Property::isReserved)).toList();
+    }
+    /** Approved listings that a tenant can still take (used for recommendations). */
+    public List<Property> availableList() { return publicList().stream().filter(p -> !p.isReserved()).toList(); }
     public Property publicOne(Long id) {
         Property p = properties.findById(id).orElseThrow(ListingService::notFound);
         if (!p.isActive()) throw notFound();
@@ -66,6 +73,7 @@ public class ListingService {
         p.setOwnerId(owner.getId());
         p.setLandlordName(owner.getFullName());
         p.setListingStatus(ListingStatus.PENDING);
+        p.release(); // new homes start available
         p = properties.save(p);
         audit.record(email, "LISTING_SUBMITTED", "Property", p.getId(), p.getTitle());
         return p;
@@ -91,6 +99,15 @@ public class ListingService {
     public void delete(String email, Long id) {
         Property p = ownedBy(email, id);
         remove(p, email);
+    }
+
+    /** The landlord makes a reserved home available again (e.g. the tenant has moved out). */
+    @Transactional
+    public Property makeAvailable(String email, Long id) { return reservations.release(ownedBy(email, id), email); }
+
+    @Transactional
+    public Property adminMakeAvailable(String adminEmail, Long id) {
+        return reservations.release(properties.findById(id).orElseThrow(ListingService::notFound), adminEmail);
     }
 
     private Property ownedBy(String email, Long id) {

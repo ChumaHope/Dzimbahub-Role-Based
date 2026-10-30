@@ -36,6 +36,7 @@ public class ViewingService {
     public ViewingView request(String tenantEmail, ViewingRequest r) {
         AppUser tenant = current.require(tenantEmail);
         Property p = properties.findById(r.propertyId()).filter(Property::isActive).orElseThrow(ListingService::notFound);
+        if (p.isReserved()) throw new ResponseStatusException(HttpStatus.CONFLICT, ReservationService.TAKEN);
         if (viewings.existsByPropertyIdAndTenantIdAndStatus(p.getId(), tenant.getId(), RequestStatus.PENDING))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "You already have a pending viewing request for this property.");
         Viewing v = viewings.save(new Viewing(p.getId(), tenant.getId(), r.date(), r.time(),

@@ -27,15 +27,15 @@ export default function AdminDashboard({ user }: { user: AuthUser }) {
   const pending = users.filter(u => u.status === 'PENDING');
   const toApprove = listings.filter(p => p.listingStatus === 'PENDING');
   const approve = (p: Property) => async () => {
-    if (await run(() => api.admin.approveListing(p.id), setFlash, `“${p.title}” approved. It is now visible to tenants and the landlord has been notified.`)) await load();
+    if (await run(() => api.admin.approveListing(p.id), setFlash, `“${p.title}” approved. It is now visible to tenants.`)) await load();
   };
   const reject = (p: Property) => async () => {
     const reason = window.prompt(`Why is “${p.title}” not approved? The landlord will see this message.`, 'Photos are unclear');
     if (reason === null) return;
     if (!reason.trim()) { setFlash({ kind: 'error', text: 'Please type a reason so the landlord knows what to fix.' }); return; }
-    if (await run(() => api.admin.rejectListing(p.id, reason.trim()), setFlash, `“${p.title}” rejected. The landlord has been told why.`)) await load();
+    if (await run(() => api.admin.rejectListing(p.id, reason.trim()), setFlash, `“${p.title}” rejected. The landlord will see the reason on their dashboard.`)) await load();
   };
-  const act = (u: UserRow, action: 'approve' | 'reject' | 'suspend' | 'reactivate' | 'reset-authenticator', done: string) => async () => {
+  const act = (u: UserRow, action: 'approve' | 'reject' | 'suspend' | 'reactivate' | 'reset-authenticator' | 'unlock', done: string) => async () => {
     if (await run(() => api.admin.userAction(u.id, action), setFlash, `${u.fullName}: ${done}`)) await load();
   };
   const n = (k: string) => (loading ? '…' : stats[k] ?? 0);
@@ -51,6 +51,7 @@ export default function AdminDashboard({ user }: { user: AuthUser }) {
         <Stat label="Landlords" value={n('landlords')} />
         <Stat label="Listings to approve" value={n('pendingListings')} tone={toApprove.length ? 'warn' : undefined} />
         <Stat label="Active listings" value={n('activeProperties')} tone="good" />
+        <Stat label="Reserved homes" value={n('reservedProperties')} />
         <Stat label="Viewing requests" value={n('viewings')} />
         <Stat label="Enquiries" value={n('messages')} />
         <Stat label="Reviews" value={n('reviews')} />
@@ -66,19 +67,20 @@ export default function AdminDashboard({ user }: { user: AuthUser }) {
         <div className="table-wrap"><table className="table"><thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Phone</th><th>Requested</th><th></th></tr></thead><tbody>
           {pending.map(u => (
             <tr key={u.id}><td>{u.fullName}</td><td><span className={`role-chip ${u.role.toLowerCase()}`}>{u.role.toLowerCase()}</span></td><td>{u.email}</td><td>{u.phone ?? '—'}</td><td>{fmtDate(u.createdAt)}</td>
-              <td className="actions"><ActionButton className="small" busyLabel="Approving…" onClick={act(u, 'approve', 'approved. They have been notified by text message.')}>Approve</ActionButton>
+              <td className="actions"><ActionButton className="small" busyLabel="Approving…" onClick={act(u, 'approve', 'approved. They can now sign in.')}>Approve</ActionButton>
                 <ActionButton className="danger small" busyLabel="Rejecting…" onClick={act(u, 'reject', 'request rejected.')}>Reject</ActionButton></td></tr>))}
         </tbody></table></div>))}
 
       {tab === 'users' && (
         <div className="table-wrap"><table className="table"><thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Status</th><th>Authenticator</th><th></th></tr></thead><tbody>
           {users.map(u => (
-            <tr key={u.id}><td>{u.fullName}</td><td><span className={`role-chip ${u.role.toLowerCase()}`}>{u.role.toLowerCase()}</span></td><td>{u.email}</td><td><Badge status={u.status} /></td><td>{u.authenticator ? <span className="badge active">set up</span> : <span className="muted">not yet</span>}</td>
+            <tr key={u.id}><td>{u.fullName}</td><td><span className={`role-chip ${u.role.toLowerCase()}`}>{u.role.toLowerCase()}</span></td><td>{u.email}</td><td><Badge status={u.status} />{u.lockedUntil && <div className="muted">🔒 locked until {new Date(u.lockedUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>}</td><td>{u.authenticator ? <span className="badge active">set up</span> : <span className="muted">not yet</span>}</td>
               <td className="actions">
                 {u.role !== 'ADMIN' && u.status === 'APPROVED' && <ActionButton className="secondary small" busyLabel="Suspending…" onClick={act(u, 'suspend', 'suspended.')}>Suspend</ActionButton>}
                 {u.role !== 'ADMIN' && u.status === 'SUSPENDED' && <ActionButton className="small" busyLabel="Reactivating…" onClick={act(u, 'reactivate', 'reactivated.')}>Reactivate</ActionButton>}
                 {u.role !== 'ADMIN' && u.status === 'REJECTED' && <ActionButton className="small" busyLabel="Approving…" onClick={act(u, 'approve', 'approved.')}>Approve instead</ActionButton>}
                 {u.role !== 'ADMIN' && u.status === 'PENDING' && <span className="muted">See “Signup requests”</span>}
+                {u.role !== 'ADMIN' && u.lockedUntil && <ActionButton className="small" busyLabel="Unlocking…" onClick={act(u, 'unlock', 'unlocked. They can sign in again now.')}>Unlock</ActionButton>}
                 {u.role !== 'ADMIN' && u.authenticator && <ActionButton className="secondary small" busyLabel="Resetting…" onClick={async () => {
                   if (!window.confirm(`Reset the authenticator for ${u.fullName}? Do this only if they lost or replaced their phone. They will scan a new QR code at their next sign-in.`)) return;
                   await act(u, 'reset-authenticator', 'authenticator reset. They will set it up again at their next sign-in.')();
@@ -117,11 +119,12 @@ export default function AdminDashboard({ user }: { user: AuthUser }) {
             return (
               <tr key={p.id}><td><div className="listing-cell"><img className="thumb" src={mediaUrl(p.imageUrl)} alt="" /><div>{p.title}<br /><span className="muted">{p.area}, {p.city}</span></div></div></td>
                 <td>{p.landlordName}</td><td>US$ {p.price}</td>
-                <td><Badge status={status} />{status === 'REJECTED' && p.reviewNote && <div className="muted">{p.reviewNote}</div>}</td>
+                <td><Badge status={status} />{p.reserved && <> <Badge status="RESERVED" /></>}{status === 'REJECTED' && p.reviewNote && <div className="muted">{p.reviewNote}</div>}</td>
                 <td className="actions">
                   {(status === 'PENDING' || status === 'REJECTED') && <ActionButton className="small" busyLabel="Approving…" onClick={approve(p)}>Approve</ActionButton>}
                   {status === 'PENDING' && <ActionButton className="secondary small" busyLabel="Rejecting…" onClick={reject(p)}>Reject…</ActionButton>}
                   {status === 'ACTIVE' && <ActionButton className="secondary small" busyLabel="Updating…" onClick={async () => { if (await run(() => api.admin.setListingStatus(p.id, 'SUSPENDED'), setFlash, 'Listing hidden from the public.')) await load(); }}>Suspend</ActionButton>}
+                  {p.reserved && <ActionButton className="secondary small" busyLabel="Updating…" onClick={async () => { if (!window.confirm(`Make “${p.title}” available again?`)) return; if (await run(() => api.admin.makeAvailable(p.id), setFlash, 'The home is available again.')) await load(); }}>Mark available</ActionButton>}
                   {status === 'SUSPENDED' && <ActionButton className="small" busyLabel="Updating…" onClick={async () => { if (await run(() => api.admin.setListingStatus(p.id, 'ACTIVE'), setFlash, 'Listing restored.')) await load(); }}>Restore</ActionButton>}
                   <ActionButton className="danger small" busyLabel="Removing…" onClick={async () => { if (!window.confirm(`Permanently remove “${p.title}”?`)) return; if (await run(() => api.admin.removeListing(p.id), setFlash, 'Listing removed.')) await load(); }}>Remove</ActionButton></td></tr>);
           })}

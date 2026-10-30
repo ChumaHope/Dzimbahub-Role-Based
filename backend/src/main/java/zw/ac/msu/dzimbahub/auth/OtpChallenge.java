@@ -21,6 +21,8 @@ public class OtpChallenge {
     @Column(length = 20) private String method;
     /** Only for TOTP_SETUP: the new secret, encrypted, until the user confirms it. */
     @Column(length = 200) private String setupSecret;
+    /** LOGIN (null on older rows) or RESET. A password-reset code can never be used to sign in, and the other way round. */
+    @Column(length = 10) private String purpose;
 
     protected OtpChallenge() {}
     public OtpChallenge(String id, Long userId, String codeHash, Instant expiresAt) {
@@ -36,6 +38,8 @@ public class OtpChallenge {
     public void consume() { consumed = true; }
     public String getMethod() { return method == null ? "CODE" : method; }
     public String getSetupSecret() { return setupSecret; }
+    public String getPurpose() { return purpose == null ? "LOGIN" : purpose; }
+    public void setPurpose(String p) { purpose = p; }
     public void setMethod(String m) { method = m; }
     public void setSetupSecret(String s) { setupSecret = s; }
     /** Switches an authenticator challenge to a sent code (the fallback). Failed attempts are kept. */

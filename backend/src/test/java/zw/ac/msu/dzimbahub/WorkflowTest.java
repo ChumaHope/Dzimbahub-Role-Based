@@ -182,8 +182,11 @@ class WorkflowTest extends ApiTestSupport {
         Property hidden = listing(landlord, "Suspended match");
         doPost("/api/admin/properties/" + hidden.getId() + "/status", admin, Map.of("status", "SUSPENDED")).andExpect(status().isOk());
         JsonNode result = read(doPost("/api/recommendations", null, Map.of("budget", 200, "area", "Avondale", "roomType", "Single", "furnished", true)).andExpect(status().isOk()));
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).get("id").asLong()).isEqualTo(good.getId());
+        assertThat(result.get("results")).hasSize(1);
+        JsonNode top = result.get("results").get(0);
+        assertThat(top.get("property").get("id").asLong()).isEqualTo(good.getId());
+        assertThat(top.get("match").asInt()).isGreaterThanOrEqualTo(90);
+        assertThat(top.get("reasons").toString()).contains("Within your US$200 budget").contains("In Avondale");
     }
 
     // ------------------------------------------------------------ administrator

@@ -87,6 +87,7 @@ export default function LoginPage() {
             <label>Email address<input className="input" type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" /></label>
             <label>Password<input className="input" type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter your password" /></label>
             <button className="btn auth-submit" disabled={busy}>{busy ? 'Checking…' : 'Continue'}</button>
+            <Link className="auth-forgot" href="/forgot-password">Forgot password?</Link>
           </form>
         ) : (
           <form className="form auth-form" onSubmit={confirm}>

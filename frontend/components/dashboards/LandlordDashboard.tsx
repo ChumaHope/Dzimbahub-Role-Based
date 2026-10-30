@@ -52,8 +52,8 @@ export default function LandlordDashboard({ user }: { user: AuthUser }) {
     const wasSuspended = editing != null && props.find(p => p.id === editing)?.listingStatus === 'SUSPENDED';
     const ok = await run(() => (editing ? api.landlord.update(editing, body) : api.landlord.create(body)), setFlash,
       wasSuspended ? 'Changes saved. This listing stays hidden until an administrator restores it.'
-        : editing ? 'Changes saved and sent to an administrator for approval. The listing is hidden until it is approved.'
-        : 'Listing submitted. An administrator will review it before tenants can see it.');
+        : editing ? 'Changes saved. Please wait for admin approval.'
+        : 'Listing submitted. Please wait for admin approval.');
     if (ok) { setShowForm(false); setEditing(null); await load(); }
   }
 
@@ -109,11 +109,16 @@ export default function LandlordDashboard({ user }: { user: AuthUser }) {
                 <div>{p.listingStatus === 'ACTIVE' ? <Link href={`/properties/${p.id}`}>{p.title}</Link> : <b>{p.title}</b>}<br /><span className="muted">{p.area}, {p.city}</span></div></div></td>
                 <td>US$ {p.price}</td><td>{p.reviewCount ? `${p.rating.toFixed(1)} (${p.reviewCount})` : 'No reviews'}</td>
                 <td><Badge status={p.listingStatus ?? 'ACTIVE'} />
-                  {p.listingStatus === 'PENDING' && <div className="muted">Waiting for an administrator to approve it</div>}
-                  {p.listingStatus === 'ACTIVE' && <div className="muted">Visible to tenants</div>}
+                  {p.listingStatus === 'PENDING' && <div className="muted">Waiting for admin approval</div>}
+                  {p.listingStatus === 'ACTIVE' && !p.reserved && <div className="muted">Visible to tenants</div>}
+                  {p.reserved && <div><Badge status="RESERVED" /> <span className="muted">Paid for by a tenant</span></div>}
                   {p.listingStatus === 'REJECTED' && <div className="review-note">Not approved: {p.reviewNote || 'no reason given'}. Edit and save to resubmit.</div>}
                   {p.listingStatus === 'SUSPENDED' && <div className="muted">Hidden by an administrator{p.reviewNote ? `: ${p.reviewNote}` : ''}</div>}</td>
-                <td className="actions"><button className="btn secondary small" onClick={() => startEdit(p)}>Edit</button>
+                <td className="actions">{p.reserved && <ActionButton className="small" busyLabel="Updating…" onClick={async () => {
+                    if (!window.confirm(`Make “${p.title}” available again? Do this when the tenant has moved out. Tenants will be able to view and book it again.`)) return;
+                    if (await run(() => api.landlord.makeAvailable(p.id), setFlash, 'The home is available again.')) await load();
+                  }}>Mark available</ActionButton>}
+                  <button className="btn secondary small" onClick={() => startEdit(p)}>Edit</button>
                   <ActionButton className="danger small" busyLabel="Removing…" onClick={async () => {
                     if (!window.confirm(`Remove “${p.title}”? Its viewing requests, messages and reviews will also be removed.`)) return;
                     if (await run(() => api.landlord.remove(p.id), setFlash, 'Listing removed.')) await load();

@@ -24,6 +24,7 @@ public class OtpService {
     /** For TOTP_SETUP the plain secret and QR link are returned once so the user can add it to their app. */
     public record Started(String challengeId, String method, String otpauthUri, String secret) {}
     public record Fallback(FallbackOutcome outcome, Issued issued, AppUser user) {}
+    /** userId is set on success, and also when a wrong code was typed (so the account's failed-try counter can count it). */
     public record Verification(Outcome outcome, Long userId, String method) {}
 
     private static final int SETUP_TTL_SECONDS = 600; // installing the app takes a few minutes
@@ -49,13 +50,19 @@ public class OtpService {
 
     private String newCode() { return String.format("%06d", random.nextInt(1_000_000)); }
 
+    public static final String LOGIN = "LOGIN", RESET = "RESET";
+
     /** Sends a code through OtpSender (the original way). */
     @Transactional
-    public Issued issue(AppUser user) {
+    public Issued issue(AppUser user) { return issue(user, LOGIN); }
+
+    @Transactional
+    public Issued issue(AppUser user, String purpose) {
         String code = newCode();
         OtpChallenge challenge = new OtpChallenge(UUID.randomUUID().toString(), user.getId(),
                 encoder.encode(code), Instant.now().plusSeconds(ttlSeconds));
         challenge.setMethod("CODE");
+        challenge.setPurpose(purpose);
         challenges.save(challenge);
         // If delivery fails this throws OtpDeliveryException and the transaction rolls the challenge back.
         OtpSender.Channel channel = sender.sendCode(user.getPhone(), code, Math.max(1, ttlSeconds / 60));
@@ -80,6 +87,17 @@ public class OtpService {
         return new Started(id, "TOTP_SETUP", Totp.otpauthUri(issuer, user.getEmail(), secret), secret);
     }
 
+    /** Forgot password, for a user who has an authenticator app: they type the app's code. */
+    @Transactional
+    public Started startResetWithApp(AppUser user) {
+        String id = UUID.randomUUID().toString();
+        OtpChallenge c = new OtpChallenge(id, user.getId(), "-", Instant.now().plusSeconds(Math.max(ttlSeconds, SETUP_TTL_SECONDS)));
+        c.setMethod("TOTP");
+        c.setPurpose(RESET);
+        challenges.save(c);
+        return new Started(id, "TOTP", null, null);
+    }
+
     /** "Get a code another way": turns an authenticator challenge into a sent code. */
     @Transactional
     public Fallback fallback(String challengeId) {
@@ -97,11 +115,26 @@ public class OtpService {
         return new Fallback(FallbackOutcome.SENT, new Issued(c.getId(), code, channel), user);
     }
 
+    /** The account a sign-in attempt belongs to, or null. Used to refuse codes while the account is locked. */
+    public Long userOf(String challengeId) {
+        return challenges.findById(challengeId).map(OtpChallenge::getUserId).orElse(null);
+    }
+
+    /** Ends a sign-in attempt early (for example when the account has just been locked). */
+    @Transactional
+    public void cancel(String challengeId) {
+        challenges.findById(challengeId).ifPresent(c -> { c.consume(); challenges.save(c); });
+    }
+
+    /** Sign-in codes only. */
+    @Transactional
+    public Verification verify(String challengeId, String code) { return verify(challengeId, code, LOGIN); }
+
     /** Never throws for a bad code, so that the failed-attempt counter is always saved. */
     @Transactional
-    public Verification verify(String challengeId, String code) {
+    public Verification verify(String challengeId, String code, String purpose) {
         OtpChallenge c = challenges.findById(challengeId).orElse(null);
-        if (c == null || c.isConsumed()) return new Verification(Outcome.INVALID, null, null);
+        if (c == null || c.isConsumed() || !c.getPurpose().equals(purpose)) return new Verification(Outcome.INVALID, null, null);
         String method = c.getMethod();
         if (Instant.now().isAfter(c.getExpiresAt())) return new Verification(Outcome.EXPIRED, null, method);
         if (c.getAttempts() >= maxAttempts) return new Verification(Outcome.LOCKED, null, method);
@@ -127,7 +160,7 @@ public class OtpService {
         }
         if (!ok) {
             challenges.save(c);
-            return new Verification(c.getAttempts() >= maxAttempts ? Outcome.LOCKED : Outcome.INVALID, null, method);
+            return new Verification(c.getAttempts() >= maxAttempts ? Outcome.LOCKED : Outcome.INVALID, c.getUserId(), method);
         }
         c.consume();
         challenges.save(c);

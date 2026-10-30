@@ -34,6 +34,13 @@ public class Property {
     @Column(length = 500) private String reviewNote;
     /** Photo addresses, comma separated. The first one is also stored in imageUrl as the cover photo. */
     @Column(length = 2000) private String photoUrlsCsv;
+    /**
+     * True once a tenant has paid for a booking: the home is taken. Null only on rows created before this existed
+     * (ReservationBackfill fills those in once). Landlords can make the home available again when the tenant leaves.
+     */
+    private Boolean reserved;
+    private Long reservedBookingId;
+    private Instant reservedAt;
     private Instant createdAt = Instant.now();
 
     public Long getId() { return id; }
@@ -57,6 +64,10 @@ public class Property {
     public Instant getCreatedAt() { return createdAt; }
     public ListingStatus getListingStatus() { return listingStatus == null ? ListingStatus.ACTIVE : listingStatus; }
     public String getReviewNote() { return reviewNote; }
+    public boolean isReserved() { return Boolean.TRUE.equals(reserved); }
+    public Instant getReservedAt() { return isReserved() ? reservedAt : null; }
+    @com.fasterxml.jackson.annotation.JsonIgnore public Long getReservedBookingId() { return isReserved() ? reservedBookingId : null; }
+    @com.fasterxml.jackson.annotation.JsonIgnore public boolean reservationUnknown() { return reserved == null; }
     @JsonProperty("amenitiesCsv") public String getAmenitiesCsv() { return amenitiesCsv; }
     /** All photos of the listing; older listings without a gallery return just their cover image. */
     public List<String> getPhotos() {
@@ -89,5 +100,7 @@ public class Property {
     public void setOwnerId(Long v) { ownerId = v; }
     public void setListingStatus(ListingStatus v) { listingStatus = v; }
     public void setReviewNote(String v) { reviewNote = v; }
+    public void reserve(Long bookingId) { reserved = true; reservedBookingId = bookingId; reservedAt = Instant.now(); }
+    public void release() { reserved = false; reservedBookingId = null; reservedAt = null; }
     public void setPhotos(List<String> v) { photoUrlsCsv = v == null ? null : String.join(",", v); }
 }

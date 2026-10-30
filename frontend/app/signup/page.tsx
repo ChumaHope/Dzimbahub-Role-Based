@@ -27,11 +27,11 @@ export default function SignupPage() {
 
   if (done) return (
     <main className="auth-page">
-      <div className="auth-side"><span className="auth-kicker">REQUEST RECEIVED</span><h1>Thank you. We will review your request.</h1><p>For the safety of tenants and landlords, every account is approved by an administrator before it can be used.</p></div>
+      <div className="auth-side"><span className="auth-kicker">REQUEST RECEIVED</span><h1>Thank you. Your request has been sent.</h1><p>For the safety of tenants and landlords, every account is approved by an administrator before it can be used.</p></div>
       <section className="auth-panel"><div className="auth-card">
         <span className="pill">PENDING APPROVAL</span><h2>Request sent</h2>
         <div className="flash ok" role="status"><span>✓ {done}</span></div>
-        <p className="muted">When you are approved, sign in with your email and password, then enter the 6-digit code we text to {phone}.</p>
+        <p className="muted">Please wait for admin approval. Once approved, you can sign in with your email and password.</p>
         <Link className="btn auth-submit" style={{ display: 'block', textAlign: 'center', marginTop: 16 }} href="/login">Go to sign in</Link>
       </div></section>
     </main>

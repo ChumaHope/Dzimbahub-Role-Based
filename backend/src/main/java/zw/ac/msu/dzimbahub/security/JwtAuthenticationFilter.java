@@ -34,7 +34,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 Claims claims = jwtService.parse(header.substring(7));
                 AppUser user = users.findByEmailIgnoreCase(claims.getSubject()).orElse(null);
-                if (user != null && user.getStatus() == UserStatus.APPROVED) {
+                // Tokens issued before the last password change no longer work (compared to the second, as tokens store whole seconds).
+                boolean stale = user != null && user.getPasswordChangedAt() != null && claims.getIssuedAt() != null
+                        && claims.getIssuedAt().toInstant().isBefore(user.getPasswordChangedAt().truncatedTo(java.time.temporal.ChronoUnit.SECONDS));
+                if (user != null && !stale && user.getStatus() == UserStatus.APPROVED) {
                     var auth = new UsernamePasswordAuthenticationToken(user.getEmail(), null,
                             List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())));
                     SecurityContextHolder.getContext().setAuthentication(auth);

@@ -64,6 +64,7 @@ public class Payment {
     public void failed(String providerStatus, String message) {
         this.providerStatus = cut40(providerStatus); this.status = PaymentStatus.FAILED; this.message = cut(message); touch();
     }
+    public void note(String m) { message = cut(m); touch(); }
     private void touch() { updatedAt = Instant.now(); }
     private static String cut(String s) { return s == null ? null : s.length() > 500 ? s.substring(0, 500) : s; }
     private static String cut40(String s) { return s == null ? null : s.length() > 40 ? s.substring(0, 40) : s; }

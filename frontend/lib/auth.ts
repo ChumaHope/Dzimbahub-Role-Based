@@ -53,3 +53,9 @@ export const loginRequest = (body: { email: string; password: string }) => authP
 export const verifyCode = (body: { challengeId: string; code: string }) => authPost<AuthResult>('/verify-otp', body);
 /** "Get a code another way": sends a code instead of using the authenticator app. */
 export const sendFallbackCode = (challengeId: string) => authPost<Challenge>('/send-code', { challengeId });
+
+/** Forgot password, step 1: returns how to prove it is you (authenticator code, or a code that was sent). */
+export const forgotPassword = (email: string) => authPost<Challenge>('/forgot-password', { email });
+/** Forgot password, step 2: the code plus the new password. */
+export const resetPassword = (body: { challengeId: string; code: string; newPassword: string }) =>
+  authPost<{ message: string }>('/reset-password', body);

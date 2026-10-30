@@ -32,6 +32,7 @@ public class LandlordController {
     @GetMapping("/properties") public List<Property> mine(Authentication a) { return listings.mine(a.getName()); }
     @PostMapping("/properties") public Property create(Authentication a, @Valid @RequestBody PropertyRequest r) { return listings.create(a.getName(), r); }
     @PutMapping("/properties/{id}") public Property update(Authentication a, @PathVariable Long id, @Valid @RequestBody PropertyRequest r) { return listings.update(a.getName(), id, r); }
+    @PostMapping("/properties/{id}/make-available") public Property makeAvailable(Authentication a, @PathVariable Long id) { return listings.makeAvailable(a.getName(), id); }
     @DeleteMapping("/properties/{id}") public Map<String, String> delete(Authentication a, @PathVariable Long id) { listings.delete(a.getName(), id); return Map.of("message", "Listing removed."); }
 
     @GetMapping("/viewings") public List<ViewingView> viewingRequests(Authentication a) { return viewings.forLandlord(a.getName()); }

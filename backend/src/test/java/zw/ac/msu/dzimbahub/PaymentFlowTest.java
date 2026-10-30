@@ -123,6 +123,7 @@ class PaymentFlowTest extends ApiTestSupport {
         Booking b = bookings.findById(booking.getId()).orElseThrow();
         assertThat(b.getStatus()).isEqualTo(BookingStatus.CONFIRMED);
         assertThat(b.getPaymentRef()).isEqualTo("PN-990001");
+        assertThat(properties.findById(b.getPropertyId()).orElseThrow().isReserved()).isTrue();
         doPost("/api/tenant/bookings/" + booking.getId() + "/paynow", tenant, Map.of("method", "ECOCASH", "phone", "0771111111")).andExpect(status().isConflict());
     }
 

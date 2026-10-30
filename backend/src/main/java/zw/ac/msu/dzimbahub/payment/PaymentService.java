@@ -14,6 +14,7 @@ import zw.ac.msu.dzimbahub.repository.BookingRepository;
 import zw.ac.msu.dzimbahub.repository.PropertyRepository;
 import zw.ac.msu.dzimbahub.service.AuditService;
 import zw.ac.msu.dzimbahub.service.CurrentUsers;
+import zw.ac.msu.dzimbahub.service.ReservationService;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
@@ -41,16 +42,17 @@ public class PaymentService {
     private final PaynowClient paynow;
     private final CurrentUsers current;
     private final AuditService audit;
+    private final ReservationService reservations;
     private final boolean enabled;
     private final String publicApiUrl, frontendUrl;
 
     public PaymentService(PaymentRepository payments, BookingRepository bookings, PropertyRepository properties, PaynowClient paynow,
-                          CurrentUsers current, AuditService audit,
+                          CurrentUsers current, AuditService audit, ReservationService reservations,
                           @Value("${app.payments.provider:simulated}") String provider,
                           @Value("${app.public-api-url:http://localhost:8080}") String publicApiUrl,
                           @Value("${app.frontend-url:http://localhost:3000}") String frontendUrl) {
         this.payments = payments; this.bookings = bookings; this.properties = properties; this.paynow = paynow;
-        this.current = current; this.audit = audit;
+        this.current = current; this.audit = audit; this.reservations = reservations;
         this.enabled = "paynow".equalsIgnoreCase(provider.trim());
         this.publicApiUrl = trimSlash(publicApiUrl); this.frontendUrl = trimSlash(frontendUrl);
         if (enabled && !paynow.configured())
@@ -77,6 +79,7 @@ public class PaymentService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only pay for your own bookings.");
         if (b.getStatus() != BookingStatus.PENDING)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "This booking is already paid.");
+        reservations.requireAvailable(b.getPropertyId(), b.getId());
         String m = method == null ? "" : method.trim().toUpperCase(Locale.ROOT);
         if (!METHODS.contains(m))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose EcoCash, OneMoney or Paynow (card and other options).");
@@ -145,10 +148,9 @@ public class PaymentService {
                     break;
                 }
                 p.paid(st.status(), st.paynowReference());
-                bookings.findById(p.getBookingId()).filter(b -> b.getStatus() == BookingStatus.PENDING).ifPresent(b -> {
-                    b.confirm("PN-" + (p.getPaynowReference() == null ? p.getReference() : p.getPaynowReference()));
-                    bookings.save(b);
-                });
+                String ref = "PN-" + (p.getPaynowReference() == null ? p.getReference() : p.getPaynowReference());
+                boolean ok = bookings.findById(p.getBookingId()).map(b -> reservations.confirmAndReserve(b, ref, actor)).orElse(true);
+                if (!ok) p.note("Payment received, but another tenant reserved this home first. The administrator will arrange a refund.");
                 audit.record(actor, "PAYMENT_RECEIVED", "Payment", p.getId(), p.getReference() + " " + p.getAmount());
             }
             case FAILED -> {

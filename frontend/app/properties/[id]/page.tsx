@@ -46,6 +46,8 @@ export default function Detail() {
   const hasPending = myViewings.some(v => v.status === 'PENDING');
   const hasApproved = myViewings.some(v => v.status === 'APPROVED');
   const isOwner = user?.role === 'LANDLORD' && user.id === p.ownerId;
+  const mineReserved = myBooking?.status === 'CONFIRMED';
+  const takenByOther = !!p.reserved && !mineReserved;
 
   return (
     <main className="container section">
@@ -80,6 +82,9 @@ export default function Detail() {
 
         <div className="detail">
           <Notice flash={flash} onClose={() => setFlash(null)} />
+          {p.reserved && <div className="reserved-banner" role="status">{mineReserved
+            ? '✓ This home is reserved for you. Your payment has been received.'
+            : 'This home has been reserved by a tenant who has paid. It is not available for viewings or bookings right now.'}</div>}
 
           {!user && (<>
             <h2>Interested in this property?</h2>
@@ -95,6 +100,7 @@ export default function Detail() {
           </>)}
 
           {user?.role === 'TENANT' && (<>
+            {!takenByOther && <>
             <h2>Arrange a viewing</h2>
             {myViewings.length > 0 && <p className="muted">Your latest request: <b>{myViewings[0].status.toLowerCase()}</b> ({myViewings[0].date} at {myViewings[0].time.slice(0, 5)})</p>}
             <div className="form">
@@ -106,6 +112,7 @@ export default function Detail() {
                 if (await run(() => api.tenant.requestViewing({ propertyId: p.id, date, time, note }), setFlash, 'Viewing request sent. The landlord will approve or decline it.')) { setNote(''); await loadMine(); }
               }}>{hasPending ? 'Request already waiting' : 'Request viewing'}</ActionButton>
             </div>
+            </>}
 
             <hr className="rule" />
             <h2>Send an enquiry</h2>
@@ -116,17 +123,19 @@ export default function Detail() {
               }}>Send enquiry</ActionButton>
             </div>
 
+            {(!takenByOther || myBooking) && <>
             <hr className="rule" />
             <h2>Book this room</h2>
             {myBooking ? (
-              <p className="muted">Booking <b>{myBooking.status.toLowerCase()}</b>{myBooking.paymentRef ? ` · reference ${myBooking.paymentRef}` : ''}. {myBooking.status === 'PENDING' && <Link href="/dashboard">Complete the simulated payment on your dashboard.</Link>}</p>
+              <p className="muted">Booking <b>{myBooking.status.toLowerCase()}</b>{myBooking.paymentRef ? ` · reference ${myBooking.paymentRef}` : ''}. {myBooking.status === 'PENDING' && (takenByOther ? 'Another tenant paid first, so this booking can no longer be paid.' : <Link href="/dashboard">Pay on your dashboard to reserve this home.</Link>)}</p>
             ) : (
               <div className="form">
                 {!hasApproved && <p className="muted">You can book after the landlord approves a viewing.</p>}
                 <ActionButton className="orange" busyLabel="Creating booking…" disabled={!hasApproved} onClick={async () => {
-                  if (await run(() => api.tenant.book(p.id), setFlash, 'Booking created. Confirm it with the simulated payment on your dashboard.')) await loadMine();
+                  if (await run(() => api.tenant.book(p.id), setFlash, 'Booking created. Pay for it on your dashboard to reserve the home.')) await loadMine();
                 }}>Create booking</ActionButton>
               </div>)}
+            </>}
 
             <hr className="rule" />
             <h2>Rate this property</h2>

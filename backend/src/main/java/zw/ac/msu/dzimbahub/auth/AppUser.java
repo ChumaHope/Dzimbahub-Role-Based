@@ -22,6 +22,12 @@ public class AppUser {
     private Instant totpEnabledAt;
     /** Last 30-second step whose code was accepted, so the same code cannot be used twice. Wrapper type: existing rows hold null. */
     private Long totpLastStep;
+    /** Wrong passwords / codes in a row. Wrapper types because existing rows hold null. */
+    private Integer failedLogins;
+    /** While set and in the future, sign-in is refused. */
+    private Instant lockedUntil;
+    /** Sign-in tokens issued before this moment stop working (see JwtAuthenticationFilter). */
+    private Instant passwordChangedAt;
 
     protected AppUser() {}
 
@@ -51,6 +57,26 @@ public class AppUser {
     }
     public void useTotpStep(long step) { this.totpLastStep = step; }
     public void resetTotp() { this.totpSecret = null; this.totpEnabledAt = null; this.totpLastStep = null; }
+
+    public boolean isLocked(Instant now) { return lockedUntil != null && now.isBefore(lockedUntil); }
+    public Instant getLockedUntil() { return lockedUntil; }
+    /**
+     * Counts one wrong password or code. Returns how many tries are left; 0 means sign-in is now locked
+     * for {@code lockMinutes}. A lock that has run out starts a fresh count.
+     */
+    public int registerFailedLogin(int maxTries, long lockMinutes, Instant now) {
+        if (lockedUntil != null && !now.isBefore(lockedUntil)) { lockedUntil = null; failedLogins = 0; }
+        int n = (failedLogins == null ? 0 : failedLogins) + 1;
+        if (n >= maxTries) { lockedUntil = now.plusSeconds(lockMinutes * 60); failedLogins = 0; return 0; }
+        failedLogins = n;
+        return maxTries - n;
+    }
+    public void clearFailedLogins() { failedLogins = 0; lockedUntil = null; }
+    public Instant getPasswordChangedAt() { return passwordChangedAt; }
+    /** Sets a new (already hashed) password and signs out every existing session. */
+    public void changePassword(String newHash) {
+        this.passwordHash = newHash; this.passwordChangedAt = Instant.now(); clearFailedLogins();
+    }
 
     public void changeStatus(UserStatus newStatus, String adminEmail) {
         this.status = newStatus; this.reviewedBy = adminEmail; this.reviewedAt = Instant.now();

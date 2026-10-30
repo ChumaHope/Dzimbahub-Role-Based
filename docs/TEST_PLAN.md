@@ -87,3 +87,14 @@ Every endpoint is called as anonymous, tenant, landlord and administrator. Expec
 | PAY-03 | Cancelled or declined payments leave the booking unpaid and can be retried | PaymentFlowTest |
 | PAY-04 | A Paid status with the wrong amount does not confirm the booking | PaymentFlowTest |
 | PAY-05 | Card/web payments return Paynow's page; phone, method and ownership are checked; simulated pay is off | PaymentFlowTest |
+
+## Sign-in protection, reservations, recommendations and passwords
+
+| ID | Requirement | Test |
+|----|-------------|------|
+| LOCK-01..04 | 5 wrong passwords or codes lock sign-in for 15 minutes; tries left are shown; the admin can unlock | LoginLockoutTest |
+| RES-01 | Paying for a booking reserves the home; others cannot view, book or pay; it leaves recommendations | ReservationTest |
+| RES-02 | Only the owning landlord (or admin) can make a reserved home available again | ReservationTest |
+| REC-01..07 | Recommendations: match %, reasons, typo-tolerant area, distance, budget filter, fallbacks, personalisation | WorkflowTest, RecommendationServiceTest |
+| PW-01 | Change password while signed in; old sessions stop working | PasswordTest |
+| PW-02..04 | Forgot password with a sent code or the authenticator; reset codes cannot sign in and sign-in codes cannot reset | PasswordTest |

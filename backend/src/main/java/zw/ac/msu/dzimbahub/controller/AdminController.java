@@ -38,6 +38,7 @@ public class AdminController {
     @PostMapping("/users/{id}/approve") public UserView approve(Authentication a, @PathVariable Long id) { return admin.approve(a.getName(), id); }
     @PostMapping("/users/{id}/reject") public UserView reject(Authentication a, @PathVariable Long id) { return admin.reject(a.getName(), id); }
     @PostMapping("/users/{id}/suspend") public UserView suspend(Authentication a, @PathVariable Long id) { return admin.suspend(a.getName(), id); }
+    @PostMapping("/users/{id}/unlock") public UserView unlock(Authentication a, @PathVariable Long id) { return admin.unlock(a.getName(), id); }
     @PostMapping("/users/{id}/reset-authenticator") public UserView resetAuthenticator(Authentication a, @PathVariable Long id) { return admin.resetAuthenticator(a.getName(), id); }
     @PostMapping("/users/{id}/reactivate") public UserView reactivate(Authentication a, @PathVariable Long id) { return admin.reactivate(a.getName(), id); }
 
@@ -56,5 +57,6 @@ public class AdminController {
         catch (IllegalArgumentException e) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status must be ACTIVE, REJECTED, SUSPENDED or PENDING."); }
         return listings.setStatus(a.getName(), id, s, r.note());
     }
+    @PostMapping("/properties/{id}/make-available") public Property makeAvailable(Authentication a, @PathVariable Long id) { return listings.adminMakeAvailable(a.getName(), id); }
     @DeleteMapping("/properties/{id}") public Map<String, String> delete(Authentication a, @PathVariable Long id) { listings.adminDelete(a.getName(), id); return Map.of("message", "Listing removed."); }
 }

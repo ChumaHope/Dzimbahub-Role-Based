@@ -6,6 +6,8 @@ export type Property = {
   latitude: number; longitude: number; imageUrl: string; landlordName: string; rating: number; reviewCount: number;
   amenities: string[]; amenitiesCsv?: string; ownerId?: number | null; listingStatus?: ListingStatus;
   reviewNote?: string | null; photos?: string[]; createdAt?: string;
+  /** true once a tenant has paid for a booking: the home is taken */
+  reserved?: boolean; reservedAt?: string | null;
 };
 export type ListingStatus = 'PENDING' | 'ACTIVE' | 'REJECTED' | 'SUSPENDED';
 export type PropertyInput = {
@@ -13,7 +15,9 @@ export type PropertyInput = {
   bedrooms: number; bathrooms: number; furnished: boolean; latitude: number; longitude: number; imageUrl: string; amenities: string;
   photos: string[];
 };
-export type RecommendationRequest = { budget: number; area: string; roomType: string; furnished: boolean };
+export type RecommendationRequest = { budget: number; area: string; roomType: string; furnished: boolean; amenities?: string[] };
+export type Recommendation = { property: Property; match: number; reasons: string[] };
+export type RecommendationResult = { results: Recommendation[]; personalised: boolean; note?: string | null };
 export type Preferences = { budget: number; area: string; roomType: string; furnished: boolean };
 export type Viewing = { id: number; propertyId: number; propertyTitle: string; tenantId: number; tenantName: string; date: string; time: string; note?: string; status: 'PENDING' | 'APPROVED' | 'DECLINED' | 'CANCELLED'; createdAt: string };
 export type Msg = { id: number; propertyId: number; propertyTitle: string; senderId: number; senderName: string; recipientId: number; recipientName: string; body: string; createdAt: string; mine: boolean };
@@ -25,7 +29,7 @@ export type Payment = {
   id: number; bookingId: number; method: PayMethod; phone?: string; amount: number; reference?: string;
   status: 'PENDING' | 'PAID' | 'FAILED'; providerStatus?: string; paynowReference?: string; message?: string; redirectUrl?: string; createdAt: string;
 };
-export type UserRow = { id: number; fullName: string; email: string; phone?: string; role: Role; status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED'; createdAt: string; authenticator?: boolean };
+export type UserRow = { id: number; fullName: string; email: string; phone?: string; role: Role; status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED'; createdAt: string; authenticator?: boolean; lockedUntil?: string | null };
 export type AuditRow = { id: number; actor?: string; action: string; targetType?: string; targetId?: string; detail?: string; createdAt: string };
 
 export const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
@@ -88,8 +92,12 @@ export const api = {
   properties: (query = '') => request<Property[]>(`/properties${query}`),
   property: (id: number) => request<Property>(`/properties/${id}`),
   reviewsFor: (id: number) => request<Review[]>(`/properties/${id}/reviews`),
-  recommendations: (body: RecommendationRequest) => post<Property[]>('/recommendations', body),
+  recommendations: (body: RecommendationRequest) => post<RecommendationResult>('/recommendations', body),
   paymentsConfig: () => request<PaymentsConfig>('/payments/config'),
+
+  /** Signed-in user changes their password; returns a fresh session (older sessions are signed out). */
+  changePassword: (currentPassword: string, newPassword: string) =>
+    post<{ token: string; user: { id: number; fullName: string; email: string; role: Role; authenticatorEnabled?: boolean } }>('/auth/change-password', { currentPassword, newPassword }),
 
   // tenant
   tenant: {
@@ -117,6 +125,7 @@ export const api = {
     update: (id: number, p: PropertyInput) => put<Property>(`/landlord/properties/${id}`, p),
     remove: (id: number) => del<{ message: string }>(`/landlord/properties/${id}`),
     uploadImage: (file: Blob, name = 'photo.jpg') => uploadFile('/landlord/images', file, name),
+    makeAvailable: (id: number) => post<Property>(`/landlord/properties/${id}/make-available`),
     viewings: () => request<Viewing[]>('/landlord/viewings'),
     decide: (id: number, approve: boolean) => post<Viewing>(`/landlord/viewings/${id}/decision`, { approve }),
     messages: () => request<Msg[]>('/landlord/messages'),
@@ -128,12 +137,13 @@ export const api = {
   admin: {
     stats: () => request<Record<string, number>>('/admin/stats'),
     users: (status = '') => request<UserRow[]>(`/admin/users${status ? `?status=${status}` : ''}`),
-    userAction: (id: number, action: 'approve' | 'reject' | 'suspend' | 'reactivate' | 'reset-authenticator') => post<UserRow>(`/admin/users/${id}/${action}`),
+    userAction: (id: number, action: 'approve' | 'reject' | 'suspend' | 'reactivate' | 'reset-authenticator' | 'unlock') => post<UserRow>(`/admin/users/${id}/${action}`),
     properties: () => request<Property[]>('/admin/properties'),
     setListingStatus: (id: number, status: ListingStatus) => post<Property>(`/admin/properties/${id}/status`, { status }),
     approveListing: (id: number) => post<Property>(`/admin/properties/${id}/approve`),
     rejectListing: (id: number, reason: string) => post<Property>(`/admin/properties/${id}/reject`, { reason }),
     removeListing: (id: number) => del<{ message: string }>(`/admin/properties/${id}`),
+    makeAvailable: (id: number) => post<Property>(`/admin/properties/${id}/make-available`),
     audit: () => request<AuditRow[]>('/admin/audit')
   }
 };

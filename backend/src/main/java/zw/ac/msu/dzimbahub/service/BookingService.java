@@ -28,11 +28,13 @@ public class BookingService {
     private final AuditService audit;
     private final SecureRandom random = new SecureRandom();
     private final boolean simulated;
+    private final ReservationService reservations;
 
     public BookingService(BookingRepository bookings, PropertyRepository properties, ViewingRepository viewings,
-                          CurrentUsers current, AuditService audit,
+                          CurrentUsers current, AuditService audit, ReservationService reservations,
                           @Value("${app.payments.provider:simulated}") String provider) {
         this.bookings = bookings; this.properties = properties; this.viewings = viewings; this.current = current; this.audit = audit;
+        this.reservations = reservations;
         this.simulated = !"paynow".equalsIgnoreCase(provider.trim());
     }
 
@@ -61,6 +63,7 @@ public class BookingService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can book a property after the landlord has approved your viewing request.");
         if (bookings.existsByPropertyIdAndTenantId(p.getId(), tenant.getId()))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "You already have a booking for this property.");
+        reservations.requireAvailable(p.getId(), null);
         Booking b = bookings.save(new Booking(p.getId(), tenant.getId(), p.getPrice()));
         audit.record(tenantEmail, "BOOKING_CREATED", "Booking", b.getId(), p.getTitle());
         return view(b);
@@ -76,10 +79,10 @@ public class BookingService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only pay for your own bookings.");
         if (b.getStatus() != BookingStatus.PENDING)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "This booking is already confirmed.");
+        reservations.requireAvailable(b.getPropertyId(), b.getId());
         StringBuilder ref = new StringBuilder("SIM-");
         for (int i = 0; i < 8; i++) ref.append(ALPHABET.charAt(random.nextInt(ALPHABET.length())));
-        b.confirm(ref.toString());
-        bookings.save(b);
+        reservations.confirmAndReserve(b, ref.toString(), tenantEmail);
         audit.record(tenantEmail, "SIMULATED_PAYMENT", "Booking", id, ref.toString());
         return view(b);
     }

@@ -38,7 +38,9 @@ public final class Dtos {
     public record BookingRequest(@NotNull Long propertyId) {}
     public record PreferenceDto(@PositiveOrZero double budget, @Size(max = 100) String area,
                                 @Size(max = 30) String roomType, boolean furnished) {}
-    public record RecommendationRequest(@PositiveOrZero double budget, String area, String roomType, boolean furnished) {}
+    /** roomType "" or "Any" = no preference; furnished=false = no preference; amenities optional (e.g. WiFi, Security). */
+    public record RecommendationRequest(@PositiveOrZero double budget, @Size(max = 100) String area, @Size(max = 30) String roomType,
+                                        boolean furnished, @Size(max = 10) java.util.List<@Size(max = 40) String> amenities) {}
     /** status: ACTIVE (approve/restore), REJECTED (needs a note), SUSPENDED or PENDING. */
     public record ListingStatusRequest(@NotNull String status, @Size(max = 500) String note) {}
     public record ListingRejectRequest(@NotBlank @Size(max = 500) String reason) {}
@@ -51,6 +53,6 @@ public final class Dtos {
     public record ReviewView(Long id, Long propertyId, String tenantName, int rating, String comment, Instant createdAt) {}
     public record BookingView(Long id, Long propertyId, String propertyTitle, Long tenantId, String tenantName,
                               double amount, String status, String paymentRef, Instant createdAt) {}
-    public record UserView(Long id, String fullName, String email, String phone, String role, String status, Instant createdAt, boolean authenticator) {}
+    public record UserView(Long id, String fullName, String email, String phone, String role, String status, Instant createdAt, boolean authenticator, Instant lockedUntil) {}
     public record AuditView(Long id, String actor, String action, String targetType, String targetId, String detail, Instant createdAt) {}
 }

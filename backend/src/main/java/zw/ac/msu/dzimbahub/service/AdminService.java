@@ -38,7 +38,8 @@ public class AdminService {
     }
 
     static UserView view(AppUser u) {
-        return new UserView(u.getId(), u.getFullName(), u.getEmail(), u.getPhone(), u.getRole().name(), u.getStatus().name(), u.getCreatedAt(), u.isTotpEnabled());
+        return new UserView(u.getId(), u.getFullName(), u.getEmail(), u.getPhone(), u.getRole().name(), u.getStatus().name(), u.getCreatedAt(), u.isTotpEnabled(),
+                u.isLocked(java.time.Instant.now()) ? u.getLockedUntil() : null);
     }
 
     public List<UserView> listUsers(UserStatus status) {
@@ -52,7 +53,7 @@ public class AdminService {
         if (u.getStatus() != UserStatus.PENDING && u.getStatus() != UserStatus.REJECTED)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Only pending or rejected requests can be approved.");
         return change(adminEmail, u, UserStatus.APPROVED, "USER_APPROVED",
-                "Your DzimbaHub account has been approved. Sign in with your email and password; the first time, you will be shown how to set up Google Authenticator.");
+                "Your DzimbaHub account has been approved. You can now sign in.");
     }
 
     @Transactional
@@ -78,6 +79,16 @@ public class AdminService {
         if (u.getStatus() != UserStatus.SUSPENDED)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Only suspended accounts can be reactivated.");
         return change(adminEmail, u, UserStatus.APPROVED, "USER_REACTIVATED", null);
+    }
+
+    /** Lets a user sign in again straight away after too many wrong passwords or codes. */
+    @Transactional
+    public UserView unlock(String adminEmail, Long id) {
+        AppUser u = target(adminEmail, id);
+        u.clearFailedLogins();
+        users.save(u);
+        audit.record(adminEmail, "ACCOUNT_UNLOCKED", "User", u.getId(), u.getEmail());
+        return view(u);
     }
 
     /** For a user who lost or replaced their phone: they will set up the authenticator app again at their next sign-in. */
@@ -118,6 +129,7 @@ public class AdminService {
         m.put("landlords", users.countByRole(UserRole.LANDLORD));
         m.put("properties", properties.count());
         m.put("activeProperties", properties.findAllByOrderByIdDesc().stream().filter(Property::isActive).count());
+        m.put("reservedProperties", properties.findAllByOrderByIdDesc().stream().filter(p -> p.isActive() && p.isReserved()).count());
         m.put("pendingListings", properties.findAllByOrderByIdDesc().stream()
                 .filter(p -> p.getListingStatus() == zw.ac.msu.dzimbahub.model.ListingStatus.PENDING).count());
         m.put("viewings", viewings.count());

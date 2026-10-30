@@ -23,7 +23,7 @@ export default function SiteNav() {
           {user ? (
             <>
               <span className={`role-chip ${user.role.toLowerCase()}`}>{user.role.toLowerCase()}</span>
-              <span className="nav-user">{user.fullName.split(' ')[0]}</span>
+              <Link href="/account" className="nav-user" title="My account and password">{user.fullName.split(' ')[0]} ⚙</Link>
               <button className="btn secondary" onClick={logout}>Sign out</button>
             </>
           ) : (
